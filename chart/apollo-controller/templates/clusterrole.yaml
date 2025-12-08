@@ -49,6 +49,7 @@ rules:
   - events
   - services
   - configmaps
+  - pods
   verbs:
   - create
   - delete

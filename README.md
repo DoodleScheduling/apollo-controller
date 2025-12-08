@@ -86,11 +86,11 @@ Using `namespaceSelector.matchLabels: {}` will lookup sub graphs across all name
 
 **IMPORTANT**: The apollo-controller needs a shared volume between schema reconcilers and itself.
 The recommended way is to have an ephemeral pvc on the controller and assign the same volume to the reconcilers.
-Moreover the apollo-controller uses doodlescheduling/rover as imager for the apollo rover cli since the is no official one.
+Moreover the apollo-controller uses [doodlescheduling/rover](https://github.com/DoodleScheduling/rover) as image for the apollo rover cli since the is no official one.
 rover requires you as a user to accept the license, by design we do not package this acknowledgment. You will need agree to the [license](https://www.apollographql.com/trust/licensing) via the reconciler template as follow
 or package your own rover image.
 
-```
+```yaml
 apiVersion: apollo.infra.doodle.com/v1beta1
 kind: SuperGraphSchema
 metadata:
