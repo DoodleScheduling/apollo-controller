@@ -17,12 +17,13 @@ limitations under the License.
 package controllers
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"crypto/sha256"
-	"errors"
 	"fmt"
-	"os"
+	"io"
+	"net/http"
 	"slices"
 
 	"github.com/go-logr/logr"
@@ -62,7 +63,7 @@ type SuperGraphSchemaReconciler struct {
 	Scheme            *runtime.Scheme
 	Recorder          record.EventRecorder
 	DefaultRoverImage string
-	RuntimeNamespace  string
+	DefaultHTTPDImage string
 }
 
 type SuperGraphSchemaReconcilerOptions struct {
@@ -209,13 +210,9 @@ func (r *SuperGraphSchemaReconciler) reconcile(ctx context.Context, schema infra
 	}
 
 	checksum := r.subGraphCheckum(subgraphs)
-	logger.V(1).Info("schema checksum ", "checksum", checksum)
+	logger.V(1).Info("schema checksum", "checksum", checksum)
 
 	supergraphConfig := r.createSuperGraphConfig(subgraphs)
-	if err != nil {
-		return schema, ctrl.Result{}, err
-	}
-
 	pod := &corev1.Pod{}
 	configmap := &corev1.ConfigMap{}
 
@@ -332,14 +329,6 @@ func (r *SuperGraphSchemaReconciler) createSuperGraphConfig(subgraphs []infrav1b
 }
 
 func (r *SuperGraphSchemaReconciler) handlerReconcilerState(ctx context.Context, schema infrav1beta1.SuperGraphSchema, pod *corev1.Pod, checksum string, logger logr.Logger) (infrav1beta1.SuperGraphSchema, ctrl.Result, error) {
-	cleanup := func() error {
-		if err := r.Delete(ctx, pod); err != nil && !apierrors.IsNotFound(err) {
-			return fmt.Errorf("could not delete reconciler pod: %w", err)
-		}
-
-		return nil
-	}
-
 	var containerStatus *corev1.ContainerStatus
 	for _, container := range pod.Status.ContainerStatuses {
 		if container.Name == "rover" {
@@ -354,7 +343,9 @@ func (r *SuperGraphSchemaReconciler) handlerReconcilerState(ctx context.Context,
 	case containerStatus.State.Terminated != nil && containerStatus.State.Terminated.ExitCode == 0:
 		logger.Info("reconciler pod succeeded", "pod-name", schema.Status.Reconciler)
 
-		schema, res, err := r.updateSchemaStatus(ctx, schema, logger)
+		schema, res, err := r.updateSchemaStatus(ctx, schema, pod, logger)
+		logger.Info("XXXXXX", res, err)
+
 		if err != nil {
 			// Don't delete the pod on transient errors (e.g., composition file not found)
 			// The pod will be cleaned up on the next successful reconcile or when it becomes stale
@@ -364,8 +355,8 @@ func (r *SuperGraphSchemaReconciler) handlerReconcilerState(ctx context.Context,
 		}
 
 		// Only cleanup pod on successful status update
-		if err := cleanup(); err != nil {
-			return schema, res, err
+		if err := r.Delete(ctx, pod); err != nil && !apierrors.IsNotFound(err) {
+			return schema, res, fmt.Errorf("could not delete reconciler pod: %w", err)
 		}
 
 		schema.Status.ObservedSHA256Checksum = checksum
@@ -376,10 +367,6 @@ func (r *SuperGraphSchemaReconciler) handlerReconcilerState(ctx context.Context,
 		return schema, res, err
 	case containerStatus.State.Terminated != nil:
 		err := fmt.Errorf("reconciler terminated with code %d", containerStatus.State.Terminated.ExitCode)
-		if err := cleanup(); err != nil {
-			return schema, ctrl.Result{}, err
-		}
-
 		schema = infrav1beta1.SuperGraphSchemaReady(schema, metav1.ConditionFalse, "ReconciliationFailed", err.Error())
 		return schema, ctrl.Result{}, err
 	}
@@ -387,20 +374,26 @@ func (r *SuperGraphSchemaReconciler) handlerReconcilerState(ctx context.Context,
 	return schema, ctrl.Result{}, nil
 }
 
-func (r *SuperGraphSchemaReconciler) updateSchemaStatus(ctx context.Context, schema infrav1beta1.SuperGraphSchema, logger logr.Logger) (infrav1beta1.SuperGraphSchema, ctrl.Result, error) {
-	composition := fmt.Sprintf("/output/%s.%s.graphql", schema.Namespace, schema.Name)
-	if _, err := os.Stat(composition); errors.Is(err, os.ErrNotExist) {
-		return schema, ctrl.Result{}, fmt.Errorf("generated apollo composition not found: %w", err)
+func (r *SuperGraphSchemaReconciler) updateSchemaStatus(ctx context.Context, schema infrav1beta1.SuperGraphSchema, pod *corev1.Pod, logger logr.Logger) (infrav1beta1.SuperGraphSchema, ctrl.Result, error) {
+	scrapeURL := fmt.Sprintf("http://%s:8080/schema.graphql", pod.Status.PodIP)
+	logger.Info("fetch composed config from url", "url", scrapeURL)
+
+	resp, err := http.Get(scrapeURL)
+	if err != nil {
+		return schema, ctrl.Result{}, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	logger.Info("scrape result", "url", scrapeURL, "http-code", resp.StatusCode, "content-length", resp.ContentLength)
+	if resp.StatusCode != http.StatusOK {
+		return schema, ctrl.Result{}, fmt.Errorf("bad status: %s", resp.Status)
 	}
 
-	b, err := os.ReadFile(composition)
+	var b []byte
+	buf := bytes.NewBuffer(b)
+	_, err = io.Copy(buf, resp.Body)
 	if err != nil {
-		return schema, ctrl.Result{}, fmt.Errorf("failed to read composition not found: %w", err)
-	}
-
-	err = os.Remove(composition)
-	if err != nil {
-		return schema, ctrl.Result{}, fmt.Errorf("failed to remove composition file: %w", err)
+		return schema, ctrl.Result{}, fmt.Errorf("write failed: %w", err)
 	}
 
 	controllerOwner := true
@@ -419,9 +412,10 @@ func (r *SuperGraphSchemaReconciler) updateSchemaStatus(ctx context.Context, sch
 			},
 		},
 		BinaryData: map[string][]byte{
-			"schema.graphql": b,
+			"schema.graphql": buf.Bytes(),
 		},
 	}
+
 	var existingSpec corev1.ConfigMap
 	err = r.Get(ctx, client.ObjectKey{
 		Namespace: cm.Namespace,
@@ -462,6 +456,7 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 	}
 
 	template.Name = fmt.Sprintf("rover-%s", rand.String(8))
+	template.Namespace = schema.Namespace
 	template.OwnerReferences = []metav1.OwnerReference{
 		{
 			Name:       schema.Name,
@@ -472,7 +467,6 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 		},
 	}
 
-	template.Namespace = r.RuntimeNamespace
 	template.ResourceVersion = ""
 	template.UID = ""
 
@@ -497,7 +491,7 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 			Command: []string{
 				"/bin/sh",
 				"-c",
-				fmt.Sprintf("rover supergraph compose --config /supergraph/supergraph.yaml --skip-update-check > /output/%s.%s.graphql", schema.Namespace, schema.Name),
+				"rover supergraph compose --config /supergraph/supergraph.yaml --skip-update-check > /output/schema.graphql",
 			},
 			Image: r.DefaultRoverImage,
 			VolumeMounts: []corev1.VolumeMount{
@@ -509,6 +503,29 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 				{
 					Name:      "rover-config",
 					MountPath: "/.config",
+				},
+				{
+					Name:      "output",
+					MountPath: "/output",
+				},
+			},
+		},
+		{
+			Name: "httpd",
+			Command: []string{
+				"httpd",
+				"-f",
+				"-v",
+				"-p",
+				"8080",
+				"-h",
+				"/output",
+			},
+			Image: r.DefaultHTTPDImage,
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "output",
+					MountPath: "/output",
 				},
 			},
 		},
@@ -534,6 +551,12 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 		},
 		corev1.Volume{
 			Name: "rover-config",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+		corev1.Volume{
+			Name: "output",
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},

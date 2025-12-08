@@ -317,6 +317,8 @@ func (r *SuperGraphReconciler) reconcile(ctx context.Context, supergraph infrav1
 				"/config/router.yaml",
 				"--supergraph",
 				"/schema/schema.graphql",
+				"--listen",
+				"0.0.0.0:4000",
 			},
 			LivenessProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{

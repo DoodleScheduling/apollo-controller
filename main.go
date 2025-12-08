@@ -61,6 +61,7 @@ var (
 	healthAddr              string
 	concurrent              int
 	defaultRoverImage       string
+	defaultHTTPDImage       string
 	gracefulShutdownTimeout time.Duration
 	clientOptions           client.Options
 	kubeConfigOpts          client.KubeConfigOptions
@@ -81,6 +82,8 @@ func main() {
 		"The duration given to the reconciler to finish before forcibly stopping.")
 	flag.StringVar(&defaultRoverImage, "default-rover-image", "ghcr.io/doodlescheduling/rover:latest",
 		"The default rover cli image if not specified elsewhere.")
+	flag.StringVar(&defaultHTTPDImage, "default-httpd-image", "busybox:latest",
+		"The default image which provides /usr/sbin/httpd.")
 
 	clientOptions.BindFlags(flag.CommandLine)
 	logOptions.BindFlags(flag.CommandLine)
@@ -191,7 +194,7 @@ func main() {
 		Scheme:            mgr.GetScheme(),
 		Recorder:          mgr.GetEventRecorderFor("SuperGraphSchema"),
 		DefaultRoverImage: defaultRoverImage,
-		RuntimeNamespace:  os.Getenv("RUNTIME_NAMESPACE"),
+		DefaultHTTPDImage: defaultHTTPDImage,
 	}
 
 	if err = supergraphschemaReconciler.SetupWithManager(mgr, controllers.SuperGraphSchemaReconcilerOptions{
