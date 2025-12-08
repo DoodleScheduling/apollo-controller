@@ -1,0 +1,7 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- bases/apollo.infra.doodle.com_subgraphs.yaml
+- bases/apollo.infra.doodle.com_supergraphschemas.yaml
+- bases/apollo.infra.doodle.com_supergraphs.yaml
+# +kubebuilder:scaffold:crdkustomizeresource

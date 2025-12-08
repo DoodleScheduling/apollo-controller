@@ -1,0 +1,7 @@
+apiVersion: swagger.infra.doodle.com/v1beta1
+kind: SwaggerHub
+metadata:
+  name: test
+spec:
+  definitionSelector:
+    matchLabels: {}

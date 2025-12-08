@@ -1,0 +1,17 @@
+apiVersion: v2
+appVersion: v0.0.0
+description: apollo controller
+home: https://github.com/DoodleScheduling/apollo-controller
+maintainers:
+- name: devops
+  email: devops@doodle.com
+keywords:
+- apollo-controller
+- apollo
+- rover
+- apollo-router
+- graphql
+name: apollo-controller
+sources:
+- https://github.com/DoodleScheduling/apollo-controller
+version: 0.0.0

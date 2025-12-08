@@ -1,0 +1,33 @@
+{{- if .Values.clusterRBAC.enabled -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ template "apollo-controller.fullname" . }}-view
+  labels:
+    app.kubernetes.io/name: {{ include "apollo-controller.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ include "apollo-controller.chart" . }}
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+  annotations:
+    {{- toYaml .Values.annotations | nindent 4 }}
+rules:
+- apiGroups:
+  - "apollo.infra.doodle.com"
+  resources:
+  - supergraphs
+  - subgraphs
+  - supergraphschemas
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "apollo.infra.doodle.com"
+  resources:
+  - supergraphs/status
+  - supergraphschemas/status
+  - subgraphs/status
+  verbs:
+  - get
+{{- end }}

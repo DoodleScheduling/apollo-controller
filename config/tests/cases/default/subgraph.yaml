@@ -1,0 +1,42 @@
+apiVersion: apollo.infra.doodle.com/v1beta1
+kind: SubGraph
+metadata:
+  name: products
+spec:
+  endpoint: http://product-service/graphql
+  schema:
+    sdl: |
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@tag"])
+
+      type Query {
+        products: [Product!]!
+        product(id: ID!): Product
+      }
+
+      type Product @key(fields: "id") {
+        id: ID!
+        name: String!
+        price: Float!
+      }
+---
+apiVersion: apollo.infra.doodle.com/v1beta1
+kind: SubGraph
+metadata:
+  name: users
+spec:
+  endpoint: http://user-server/graphql
+  schema:
+    sdl: |
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@tag"])
+
+      type Query {
+        users: [User!]!
+        user(id: ID!): User
+      }
+
+      type User @key(fields: "id") {
+        id: ID!
+        username: String!
+      }
