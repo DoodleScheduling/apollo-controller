@@ -143,9 +143,6 @@ type SuperGraphStatus struct {
 
 	// ObservedGeneration is the last generation reconciled by the controller
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-
-	// SubResourceCatalog holds discovered references to all sub resources including SwaggerDefinition and SwaggerUnification associated with this hub
-	SubResourceCatalog []ResourceReference `json:"subResourceCatalog,omitempty"`
 }
 
 func SuperGraphReconciling(supergraph SuperGraph, status metav1.ConditionStatus, reason, message string) SuperGraph {

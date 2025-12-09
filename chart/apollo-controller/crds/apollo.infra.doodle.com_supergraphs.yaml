@@ -8835,23 +8835,6 @@ spec:
                   by the controller
                 format: int64
                 type: integer
-              subResourceCatalog:
-                description: SubResourceCatalog holds discovered references to all
-                  sub resources including SwaggerDefinition and SwaggerUnification
-                  associated with this hub
-                items:
-                  description: ResourceReference metadata to lookup another resource
-                  properties:
-                    apiVersion:
-                      type: string
-                    kind:
-                      type: string
-                    name:
-                      type: string
-                    namespace:
-                      type: string
-                  type: object
-                type: array
             type: object
         type: object
     served: true

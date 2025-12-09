@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -125,8 +126,11 @@ var _ = Describe("SuperGraphSchema controller", func() {
 				}, configMap)
 			}, timeout, interval).Should(Succeed())
 
+			Expect(configMap.OwnerReferences[0].Name).Should(Equal(reconciledInstance.Status.Reconciler.Name))
 			Expect(configMap.Data).Should(HaveKey("supergraph.yaml"))
-			expectedYAML := "federation_version: 2\nsubgraphs: {}\n"
+			expectedYAML := `federation_version: 2
+subgraphs: {}
+`
 			Expect(configMap.Data["supergraph.yaml"]).Should(Equal(expectedYAML))
 		})
 
@@ -158,6 +162,7 @@ var _ = Describe("SuperGraphSchema controller", func() {
 			}()
 
 			By("setting the reconciler pod as done")
+			reconcilerPodName := reconciledInstance.Status.Reconciler.Name
 			pod := &corev1.Pod{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{
 				Name:      reconciledInstance.Status.Reconciler.Name,
@@ -205,18 +210,11 @@ var _ = Describe("SuperGraphSchema controller", func() {
 
 			By("making sure the reconciler pod is gone")
 			Expect(k8sClient.Get(ctx, types.NamespacedName{
-				Name:      reconciledInstance.Status.Reconciler.Name,
+				Name:      reconcilerPodName,
 				Namespace: reconciledInstance.Namespace,
-			}, pod)).Should(Not(BeNil()))
+			}, pod)).ShouldNot(BeNil())
 
 			Expect(reconciledInstance.Status.Reconciler.Name).Should(Equal(""))
-
-			By("making sure the schema secret is gone")
-			var secret *corev1.Secret
-			Expect(k8sClient.Get(ctx, types.NamespacedName{
-				Name:      reconciledInstance.Status.Reconciler.Name,
-				Namespace: reconciledInstance.Namespace,
-			}, secret)).Should(Not(BeNil()))
 		})
 	})
 
@@ -301,9 +299,113 @@ var _ = Describe("SuperGraphSchema controller", func() {
 				}, configMap)
 			}, timeout, interval).Should(Succeed())
 
+			Expect(configMap.OwnerReferences[0].Name).Should(Equal(reconciledInstance.Status.Reconciler.Name))
 			Expect(configMap.Data).Should(HaveKey("supergraph.yaml"))
-			expectedYAML := fmt.Sprintf("federation_version: 2\nsubgraphs:\n    %s:\n        routing_url: \"\"\n        schema:\n            file: /schemas/default.%s.graphql\n", subName, subName)
+			expectedYAML := fmt.Sprintf(`federation_version: 2
+subgraphs:
+    %s:
+        routing_url: ""
+        schema:
+            file: /schemas/default.%s.graphql
+`, subName, subName)
 			Expect(configMap.Data["supergraph.yaml"]).Should(Equal(expectedYAML))
+		})
+
+		It("transitions into ready once the reconciler pod terminates", func() {
+			ctx := context.Background()
+			reconciledInstance := &v1beta1.SuperGraphSchema{}
+			instanceLookupKey := types.NamespacedName{Name: schemaName, Namespace: "default"}
+			Expect(k8sClient.Get(ctx, instanceLookupKey, reconciledInstance)).Should(Succeed())
+
+			By("setting up HTTP server to serve schema")
+			listener, err := net.Listen("tcp", "127.0.0.1:29000")
+			Expect(err).NotTo(HaveOccurred())
+			httpServer := &http.Server{
+				Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.URL.Path == "/schema.graphql" {
+						w.WriteHeader(http.StatusOK)
+						w.Write([]byte("type Query { hello: String }"))
+					} else {
+						w.WriteHeader(http.StatusNotFound)
+					}
+				}),
+			}
+			go func() {
+				httpServer.Serve(listener)
+			}()
+			defer func() {
+				httpServer.Shutdown(context.Background())
+				listener.Close()
+			}()
+
+			By("setting the reconciler pod as done")
+			reconcilerPodName := reconciledInstance.Status.Reconciler.Name
+
+			pod := &corev1.Pod{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      reconciledInstance.Status.Reconciler.Name,
+				Namespace: reconciledInstance.Namespace,
+			}, pod)).Should(Succeed())
+
+			// Set PodIP so the controller can fetch the schema
+			pod.Status.PodIP = "127.0.0.1"
+			pod.Status.ContainerStatuses = []corev1.ContainerStatus{
+				{
+					Name: "rover",
+					State: corev1.ContainerState{
+						Terminated: &corev1.ContainerStateTerminated{
+							ExitCode: 0,
+						},
+					},
+				},
+			}
+
+			Expect(k8sClient.Status().Update(ctx, pod)).Should(Succeed())
+
+			By("waiting for the reconciliation")
+			expectedStatus := &v1beta1.SuperGraphSchemaStatus{
+				ObservedGeneration: 1,
+				Conditions: []metav1.Condition{
+					{
+						Type:    v1beta1.ConditionReady,
+						Status:  metav1.ConditionTrue,
+						Reason:  "ReconciliationSucceeded",
+						Message: fmt.Sprintf("reconciler {%s} terminated with code 0", pod.Name),
+					},
+				},
+			}
+
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, instanceLookupKey, reconciledInstance)
+				if err != nil {
+					return err
+				}
+
+				return needsExactConditions(expectedStatus.Conditions, reconciledInstance.Status.Conditions)
+			}, timeout, interval).Should(Not(HaveOccurred()))
+
+			Expect(reconciledInstance.Status.Reconciler.Name).Should(Equal(""))
+
+			By("making sure the reconciler pod is gone")
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Name:      reconcilerPodName,
+				Namespace: reconciledInstance.Namespace,
+			}, pod)
+			Expect(apierrors.IsNotFound(err)).Should(BeTrue())
+
+			Expect(reconciledInstance.Status.Reconciler.Name).Should(Equal(""))
+
+			By("making sure the composed schema ConfigMap exists")
+			composedSchema := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      reconciledInstance.Status.ConfigMap.Name,
+				Namespace: reconciledInstance.Namespace,
+			}, composedSchema)).Should(Succeed())
+
+			Expect(composedSchema.OwnerReferences[0].Name).Should(Equal(schemaName))
+			Expect(composedSchema.Data).Should(HaveKey("schema.graphql"))
+			expectedSchema := `type Query { hello: String }`
+			Expect(composedSchema.Data["schema.graphql"]).Should(Equal(expectedSchema))
 		})
 	})
 
@@ -485,7 +587,17 @@ var _ = Describe("SuperGraphSchema controller", func() {
 
 			Expect(configMap.Data).Should(HaveKey("supergraph.yaml"))
 			// Subgraphs are sorted by name, so subName1 (sub-a-...) comes before subName2 (sub-b-...)
-			expectedYAML := fmt.Sprintf("federation_version: 2\nsubgraphs:\n    %s:\n        routing_url: \"\"\n        schema:\n            file: /schemas/default.%s.graphql\n    %s:\n        routing_url: \"\"\n        schema:\n            file: /schemas/default.%s.graphql\n", subName1, subName1, subName2, subName2)
+			expectedYAML := fmt.Sprintf(`federation_version: 2
+subgraphs:
+    %s:
+        routing_url: ""
+        schema:
+            file: /schemas/default.%s.graphql
+    %s:
+        routing_url: ""
+        schema:
+            file: /schemas/default.%s.graphql
+`, subName1, subName1, subName2, subName2)
 			Expect(configMap.Data["supergraph.yaml"]).Should(Equal(expectedYAML))
 		})
 	})
@@ -717,7 +829,13 @@ var _ = Describe("SuperGraphSchema controller", func() {
 
 			Expect(configMap.Data).Should(HaveKey("supergraph.yaml"))
 			// After endpoint update to "https://example2.com", routing_url should be "https://example2.com"
-			expectedYAML := fmt.Sprintf("federation_version: 2\nsubgraphs:\n    %s:\n        routing_url: https://example2.com\n        schema:\n            file: /schemas/default.%s.graphql\n", subName, subName)
+			expectedYAML := fmt.Sprintf(`federation_version: 2
+subgraphs:
+    %s:
+        routing_url: https://example2.com
+        schema:
+            file: /schemas/default.%s.graphql
+`, subName, subName)
 			Expect(configMap.Data["supergraph.yaml"]).Should(Equal(expectedYAML))
 		})
 	})
@@ -958,7 +1076,13 @@ var _ = Describe("SuperGraphSchema controller", func() {
 			}, timeout, interval).Should(Succeed())
 
 			Expect(configMap.Data).Should(HaveKey("supergraph.yaml"))
-			expectedYAML := fmt.Sprintf("federation_version: 2\nsubgraphs:\n    %s:\n        routing_url: \"\"\n        schema:\n            file: /schemas/default.%s.graphql\n", subName, subName)
+			expectedYAML := fmt.Sprintf(`federation_version: 2
+subgraphs:
+    %s:
+        routing_url: ""
+        schema:
+            file: /schemas/default.%s.graphql
+`, subName, subName)
 			Expect(configMap.Data["supergraph.yaml"]).Should(Equal(expectedYAML))
 
 			beforeUpdateStatus := reconciledInstance.Status
@@ -1008,7 +1132,13 @@ var _ = Describe("SuperGraphSchema controller", func() {
 
 			Expect(configMapAfterUpdate.Data).Should(HaveKey("supergraph.yaml"))
 			// After endpoint update to "changed", routing_url should be "changed"
-			expectedYAMLAfterUpdate := fmt.Sprintf("federation_version: 2\nsubgraphs:\n    %s:\n        routing_url: changed\n        schema:\n            file: /schemas/default.%s.graphql\n", subName, subName)
+			expectedYAMLAfterUpdate := fmt.Sprintf(`federation_version: 2
+subgraphs:
+    %s:
+        routing_url: changed
+        schema:
+            file: /schemas/default.%s.graphql
+`, subName, subName)
 			Expect(configMapAfterUpdate.Data["supergraph.yaml"]).Should(Equal(expectedYAMLAfterUpdate))
 		})
 	})
