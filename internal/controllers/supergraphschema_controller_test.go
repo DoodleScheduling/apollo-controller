@@ -192,7 +192,7 @@ subgraphs: {}
 						Type:    v1beta1.ConditionReady,
 						Status:  metav1.ConditionTrue,
 						Reason:  "ReconciliationSucceeded",
-						Message: fmt.Sprintf("reconciler {%s} terminated with code 0", pod.Name),
+						Message: fmt.Sprintf("reconciler %s terminated with code 0", pod.Name),
 					},
 				},
 			}
@@ -370,7 +370,7 @@ subgraphs:
 						Type:    v1beta1.ConditionReady,
 						Status:  metav1.ConditionTrue,
 						Reason:  "ReconciliationSucceeded",
-						Message: fmt.Sprintf("reconciler {%s} terminated with code 0", pod.Name),
+						Message: fmt.Sprintf("reconciler %s terminated with code 0", pod.Name),
 					},
 				},
 			}

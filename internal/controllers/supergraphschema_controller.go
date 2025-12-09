@@ -364,7 +364,7 @@ func (r *SuperGraphSchemaReconciler) handlerReconcilerState(ctx context.Context,
 		}
 
 		schema.Status.ObservedSHA256Checksum = checksum
-		schema = infrav1beta1.SuperGraphSchemaReady(schema, metav1.ConditionTrue, "ReconciliationSucceeded", fmt.Sprintf("reconciler %s terminated with code 0", schema.Status.Reconciler))
+		schema = infrav1beta1.SuperGraphSchemaReady(schema, metav1.ConditionTrue, "ReconciliationSucceeded", fmt.Sprintf("reconciler %s terminated with code 0", schema.Status.Reconciler.Name))
 		msg := "schema successfully composed"
 		r.Recorder.Event(&schema, "Normal", "info", msg)
 
@@ -415,8 +415,8 @@ func (r *SuperGraphSchemaReconciler) updateSchemaStatus(ctx context.Context, sch
 				},
 			},
 		},
-		BinaryData: map[string][]byte{
-			"schema.graphql": buf.Bytes(),
+		Data: map[string]string{
+			"schema.graphql": string(buf.Bytes()),
 		},
 	}
 
