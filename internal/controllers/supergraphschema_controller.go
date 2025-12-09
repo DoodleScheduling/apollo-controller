@@ -209,7 +209,7 @@ type subGraphSchema struct {
 
 func (r *SuperGraphSchemaReconciler) reconcile(ctx context.Context, schema infrav1beta1.SuperGraphSchema, logger logr.Logger) (infrav1beta1.SuperGraphSchema, ctrl.Result, error) {
 	schema.Status.SubResourceCatalog = []infrav1beta1.ResourceReference{}
-	schema, subgraphs, err := r.extendSuperWithSubGraphs(ctx, schema)
+	schema, subgraphs, err := r.extendSuperWithSubGraphs(ctx, schema, logger)
 	if err != nil {
 		return schema, ctrl.Result{}, err
 	}
@@ -379,7 +379,7 @@ func (r *SuperGraphSchemaReconciler) handlerReconcilerState(ctx context.Context,
 }
 
 func (r *SuperGraphSchemaReconciler) updateSchemaStatus(ctx context.Context, schema infrav1beta1.SuperGraphSchema, pod *corev1.Pod, logger logr.Logger) (infrav1beta1.SuperGraphSchema, ctrl.Result, error) {
-	scrapeURL := fmt.Sprintf("http://%s:8080/schema.graphql", pod.Status.PodIP)
+	scrapeURL := fmt.Sprintf("http://%s:29000/schema.graphql", pod.Status.PodIP)
 	logger.Info("fetch composed config from url", "url", scrapeURL)
 
 	resp, err := http.Get(scrapeURL)
@@ -521,7 +521,7 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 				"-f",
 				"-v",
 				"-p",
-				"8080",
+				"29000",
 				"-h",
 				"/output",
 			},
@@ -640,7 +640,7 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 	return schema, ctrl.Result{}, err
 }
 
-func (r *SuperGraphSchemaReconciler) extendSuperWithSubGraphs(ctx context.Context, schema infrav1beta1.SuperGraphSchema) (infrav1beta1.SuperGraphSchema, []infrav1beta1.SubGraph, error) {
+func (r *SuperGraphSchemaReconciler) extendSuperWithSubGraphs(ctx context.Context, schema infrav1beta1.SuperGraphSchema, logger logr.Logger) (infrav1beta1.SuperGraphSchema, []infrav1beta1.SubGraph, error) {
 	var subgraphs infrav1beta1.SubGraphList
 	subgraphselector, err := metav1.LabelSelectorAsSelector(schema.Spec.SubGraphSelector)
 	if err != nil {
@@ -667,13 +667,13 @@ func (r *SuperGraphSchemaReconciler) extendSuperWithSubGraphs(ctx context.Contex
 	}
 
 	for _, namespace := range namespaces.Items {
-		var namespacedSpecification infrav1beta1.SubGraphList
-		err = r.List(ctx, &namespacedSpecification, client.InNamespace(namespace.Name), client.MatchingLabelsSelector{Selector: subgraphselector})
+		var namespacedSubGraph infrav1beta1.SubGraphList
+		err = r.List(ctx, &namespacedSubGraph, client.InNamespace(namespace.Name), client.MatchingLabelsSelector{Selector: subgraphselector})
 		if err != nil {
 			return schema, nil, err
 		}
 
-		subgraphs.Items = append(subgraphs.Items, namespacedSpecification.Items...)
+		subgraphs.Items = append(subgraphs.Items, namespacedSubGraph.Items...)
 	}
 
 	slices.SortFunc(subgraphs.Items, func(a, b infrav1beta1.SubGraph) int {
@@ -684,6 +684,13 @@ func (r *SuperGraphSchemaReconciler) extendSuperWithSubGraphs(ctx context.Contex
 	})
 
 	for _, subgraph := range subgraphs.Items {
+		cm := &corev1.ConfigMap{}
+		err = r.Get(ctx, client.ObjectKey{Name: subgraph.Status.ConfigMap.Name, Namespace: subgraph.Namespace}, cm)
+		if err != nil {
+			logger.Info("subgraph configmap not found, ignoring", "configmap", subgraph.Status.ConfigMap.Name, "namespace", subgraph.Namespace, "error", err)
+			continue
+		}
+
 		ref := infrav1beta1.ResourceReference{
 			Kind:       subgraph.Kind,
 			Name:       subgraph.Name,
