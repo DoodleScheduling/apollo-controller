@@ -64,6 +64,11 @@ type SuperGraphSchemaReconciler struct {
 	Recorder          record.EventRecorder
 	DefaultRoverImage string
 	DefaultHTTPDImage string
+	HTTPGetter        httpGetter
+}
+
+type httpGetter interface {
+	Get(url string) (*http.Response, error)
 }
 
 type SuperGraphSchemaReconcilerOptions struct {
@@ -344,7 +349,6 @@ func (r *SuperGraphSchemaReconciler) handlerReconcilerState(ctx context.Context,
 		logger.Info("reconciler pod succeeded", "pod-name", schema.Status.Reconciler)
 
 		schema, res, err := r.updateSchemaStatus(ctx, schema, pod, logger)
-		logger.Info("XXXXXX", res, err)
 
 		if err != nil {
 			// Don't delete the pod on transient errors (e.g., composition file not found)

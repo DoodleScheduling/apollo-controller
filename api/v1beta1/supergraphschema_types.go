@@ -58,13 +58,25 @@ type SuperGraphSchemaSpec struct {
 	Timeout  *metav1.Duration `json:"timeout,omitempty"`
 	Interval *metav1.Duration `json:"interval,omitempty"`
 
-	ReconcilerTemplate *corev1.PodTemplateSpec `json:"reconcilerTemplate,omitempty"`
+	ReconcilerTemplate *ReconcilerTemplate `json:"reconcilerTemplate,omitempty"`
 
 	// SubgraphSelector defines a selector to select subgraphs associated with this schema
 	SubGraphSelector *metav1.LabelSelector `json:"subGraphSelector,omitempty"`
 
 	// NamespaceSelector defines a selector to select namespaces where subgraphs are looked up
 	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
+}
+
+type ReconcilerTemplate struct {
+	// Standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	// +optional
+	ObjectMetadata `json:"metadata,omitempty"`
+
+	// Specification of the desired behavior of the pod.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+	// +optional
+	Spec corev1.PodSpec `json:"spec,omitempty"`
 }
 
 // SuperGraphSchemaStatus defines the observed state of SuperGraphSchema

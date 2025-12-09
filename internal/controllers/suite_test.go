@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"path/filepath"
 	"testing"
@@ -25,6 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -75,6 +77,15 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
+	err = (&SuperGraphSchemaReconciler{
+		Client:            k8sManager.GetClient(),
+		Log:               ctrl.Log.WithName("controllers").WithName("SuperGraph"),
+		Recorder:          k8sManager.GetEventRecorderFor("SuperGraph"),
+		DefaultRoverImage: "rover:v0",
+		DefaultHTTPDImage: "busybox:v0",
+	}).SetupWithManager(k8sManager, SuperGraphSchemaReconcilerOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
 	ctx, cancel = context.WithCancel(context.TODO())
 	go func() {
 		err = k8sManager.Start(ctx)
@@ -101,4 +112,43 @@ func randStringRunes(n int) string {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
 	return string(b)
+}
+
+func needsExactConditions(expected []metav1.Condition, current []metav1.Condition) error {
+	var expectedConditions []string
+	var currentConditions []string
+
+	for _, expectedCondition := range expected {
+		expectedConditions = append(expectedConditions, expectedCondition.Type)
+		var hasCondition bool
+		for _, condition := range current {
+			if expectedCondition.Type == condition.Type {
+				hasCondition = true
+
+				if expectedCondition.Status != condition.Status {
+					return fmt.Errorf("condition %s does not match expected status %s, current status=%s; current conditions=%#v", expectedCondition.Type, expectedCondition.Status, condition.Status, current)
+				}
+				if expectedCondition.Reason != condition.Reason {
+					return fmt.Errorf("condition %s does not match expected reason %s, current reason=%s; current conditions=%#v", expectedCondition.Type, expectedCondition.Reason, condition.Reason, current)
+				}
+				if expectedCondition.Message != condition.Message {
+					return fmt.Errorf("condition %s does not match expected message %s, current status=%s; current conditions=%#v", expectedCondition.Type, expectedCondition.Message, condition.Message, current)
+				}
+			}
+		}
+
+		if !hasCondition {
+			return fmt.Errorf("missing condition %s", expectedCondition.Type)
+		}
+	}
+
+	for _, condition := range current {
+		currentConditions = append(currentConditions, condition.Type)
+	}
+
+	if len(expectedConditions) != len(currentConditions) {
+		return fmt.Errorf("expected conditions %#v do not match, current conditions=%#v", expectedConditions, currentConditions)
+	}
+
+	return nil
 }

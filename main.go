@@ -195,6 +195,7 @@ func main() {
 		Recorder:          mgr.GetEventRecorderFor("SuperGraphSchema"),
 		DefaultRoverImage: defaultRoverImage,
 		DefaultHTTPDImage: defaultHTTPDImage,
+		HTTPGetter:        http.DefaultClient,
 	}
 
 	if err = supergraphschemaReconciler.SetupWithManager(mgr, controllers.SuperGraphSchemaReconcilerOptions{
