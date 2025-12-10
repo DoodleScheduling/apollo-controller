@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -41,10 +42,9 @@ import (
 // SubGraph reconciles a SubGraph object
 type SubGraphReconciler struct {
 	client.Client
-	Log        logr.Logger
-	Scheme     *runtime.Scheme
-	Recorder   record.EventRecorder
-	HTTPClient httpClient
+	Log      logr.Logger
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 }
 
 type httpClient interface {
@@ -61,6 +61,10 @@ func (r *SubGraphReconciler) SetupWithManager(mgr ctrl.Manager, opts SubGraphRec
 		For(&infrav1beta1.SubGraph{}, builder.WithPredicates(
 			predicate.GenerationChangedPredicate{},
 		)).
+		Watches(
+			&corev1.ConfigMap{},
+			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &infrav1beta1.SubGraph{}, handler.OnlyControllerOwner()),
+		).
 		WithOptions(controller.Options{MaxConcurrentReconciles: opts.MaxConcurrentReconciles}).
 		Complete(r)
 }
@@ -126,10 +130,10 @@ func (r *SubGraphReconciler) reconcile(ctx context.Context, subgraph infrav1beta
 	}
 
 	if subgraph.Spec.Schema != nil {
-		cm.BinaryData = make(map[string][]byte)
-		cm.BinaryData["schema.graphql"] = []byte(subgraph.Spec.Schema.SDL)
+		cm.Data = make(map[string]string)
+		cm.Data["schema.graphql"] = subgraph.Spec.Schema.SDL
 	} else {
-		return subgraph, ctrl.Result{}, fmt.Errorf("schema not found")
+		return subgraph, ctrl.Result{}, fmt.Errorf("no schema defined")
 	}
 
 	checksumSha := sha256.New()

@@ -92,6 +92,10 @@ func (r *SuperGraphReconciler) SetupWithManager(mgr ctrl.Manager, opts SuperGrap
 			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &infrav1beta1.SuperGraph{}, handler.OnlyControllerOwner()),
 		).
 		Watches(
+			&appsv1.Deployment{},
+			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &infrav1beta1.SuperGraph{}, handler.OnlyControllerOwner()),
+		).
+		Watches(
 			&corev1.Service{},
 			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &infrav1beta1.SuperGraph{}, handler.OnlyControllerOwner()),
 		).
@@ -188,7 +192,7 @@ func (r *SuperGraphReconciler) reconcile(ctx context.Context, supergraph infrav1
 	}
 
 	if apierrors.IsNotFound(err) {
-		return supergraph, ctrl.Result{}, fmt.Errorf("schema not found")
+		return supergraph, ctrl.Result{}, fmt.Errorf("schema %s not found", supergraph.Spec.Schema.Name)
 	}
 
 	var schema corev1.ConfigMap
@@ -202,7 +206,7 @@ func (r *SuperGraphReconciler) reconcile(ctx context.Context, supergraph infrav1
 	}
 
 	if apierrors.IsNotFound(err) {
-		return supergraph, ctrl.Result{}, fmt.Errorf("schema configmap not found")
+		return supergraph, ctrl.Result{}, fmt.Errorf("schema configmap %s not found", graphschema.Status.ConfigMap.Name)
 	}
 
 	supergraph, result, err := r.reconcileConfig(ctx, supergraph)

@@ -1,7 +1,7 @@
 apiVersion: apollo.infra.doodle.com/v1beta1
 kind: SuperGraph
 metadata:
-  name: router
+  name: root
 spec:
   schema: 
-    name: root-schema
+    name: root

@@ -62,7 +62,8 @@ type SuperGraphSpec struct {
 	RouterConfig runtime.RawExtension `json:"routerConfig,omitempty"`
 
 	// Schema
-	Schema corev1.LocalObjectReference `json:"schema,omitempty"`
+	// +kubebuilder:validation:Required
+	Schema corev1.LocalObjectReference `json:"schema"`
 }
 
 type DeploymentTemplate struct {

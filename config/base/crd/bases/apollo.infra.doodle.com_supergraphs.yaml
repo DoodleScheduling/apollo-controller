@@ -8755,6 +8755,8 @@ spec:
               suspend:
                 description: Suspend reconciliation
                 type: boolean
+            required:
+            - schema
             type: object
           status:
             description: SuperGraphStatus defines the observed state of SuperGraph

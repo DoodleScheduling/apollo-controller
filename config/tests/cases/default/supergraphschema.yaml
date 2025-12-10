@@ -1,21 +1,14 @@
 apiVersion: apollo.infra.doodle.com/v1beta1
 kind: SuperGraphSchema
 metadata:
-  name: root-schema
+  name: root
 spec:
   subGraphSelector:
     matchLabels: {}
   reconcilerTemplate:
     spec:
-      volumes:
-      - name: output
-        persistentVolumeClaim:
-          claimName: apollo-controller-rover-output
       containers:
       - name: rover
         env:
         - name: APOLLO_ELV2_LICENSE
           value: accept
-        volumeMounts:
-        - mountPath: /output
-          name: output

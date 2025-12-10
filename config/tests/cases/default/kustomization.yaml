@@ -1,8 +1,9 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: swagger-system
+namespace: apollo-system
 
 resources: 
 - ../../base
-- swaggerdefinition.yaml
-- swaggerspecification.yaml
+- subgraph.yaml
+- supergraphschema.yaml
+- supergraph.yaml

@@ -174,11 +174,10 @@ func main() {
 	}
 
 	subgraphReconciler := &controllers.SubGraphReconciler{
-		Client:     mgr.GetClient(),
-		Log:        ctrl.Log.WithName("controllers").WithName("SubGraph"),
-		Scheme:     mgr.GetScheme(),
-		Recorder:   mgr.GetEventRecorderFor("SubGraph"),
-		HTTPClient: http.DefaultClient,
+		Client:   mgr.GetClient(),
+		Log:      ctrl.Log.WithName("controllers").WithName("SubGraph"),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("SubGraph"),
 	}
 
 	if err = subgraphReconciler.SetupWithManager(mgr, controllers.SubGraphReconcilerOptions{

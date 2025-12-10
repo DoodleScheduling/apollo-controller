@@ -8,6 +8,7 @@ import (
 	"github.com/DoodleScheduling/apollo-controller/api/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -85,7 +86,7 @@ var _ = Describe("SuperGraph controller", func() {
 						Type:    v1beta1.ConditionReady,
 						Status:  metav1.ConditionFalse,
 						Reason:  "ReconciliationFailed",
-						Message: "schema not found",
+						Message: fmt.Sprintf("schema %s not found", ""),
 					},
 				},
 			}
@@ -107,7 +108,7 @@ var _ = Describe("SuperGraph controller", func() {
 		})
 	})
 
-	/*When("it reconciles a supergraph with a schema", func() {
+	When("it reconciles a supergraph with a schema", func() {
 		schemaName := fmt.Sprintf("supergraph-%s", randStringRunes(5))
 		supergraphName := fmt.Sprintf("supergraph-%s", randStringRunes(5))
 		var schema *v1beta1.SuperGraphSchema
@@ -124,6 +125,20 @@ var _ = Describe("SuperGraph controller", func() {
 				Spec: v1beta1.SuperGraphSchemaSpec{},
 			}
 			Expect(k8sClient.Create(ctx, schema)).Should(Succeed())
+			schema.Status.ConfigMap.Name = schemaName
+			Expect(k8sClient.Status().Update(ctx, schema)).Should(Succeed())
+
+			cm := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      schemaName,
+					Namespace: "default",
+				},
+				Data: map[string]string{
+					"schema.graphql": "type Query { hello: String }",
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, cm)).Should(Succeed())
 		})
 
 		It("creates a new supergraph", func() {
@@ -171,11 +186,11 @@ var _ = Describe("SuperGraph controller", func() {
 			}, timeout, interval).Should(BeNil())
 
 			Expect(reconciledInstance.Spec.Selector).To(Equal(map[string]string{
+				"apollo-controller/supergraph": supergraphName,
 				"app.kubernetes.io/instance":   "apollo-router",
 				"app.kubernetes.io/name":       "apollo-router",
-				"apollo-controller/supergraph": supergraphName,
 			}))
-			Expect(reconciledInstance.OwnerReferences[0].Name).Should(Equal(supergraph))
+			Expect(reconciledInstance.OwnerReferences[0].Name).Should(Equal(supergraphName))
 		})
 
 		It("should create a deployment", func() {
@@ -187,20 +202,20 @@ var _ = Describe("SuperGraph controller", func() {
 			}, timeout, interval).Should(BeNil())
 
 			Expect(reconciledInstance.Spec.Template.ObjectMeta.Labels).To(Equal(map[string]string{
-				"app.kubernetes.io/instance":               "apollo-router",
-				"app.kubernetes.io/name":                   "apollo-router",
-				"swagger-supergraph-controller/supergraph": supergraphName,
+				"apollo-controller/supergraph": supergraphName,
+				"app.kubernetes.io/instance":   "apollo-router",
+				"app.kubernetes.io/name":       "apollo-router",
 			}))
 
 			Expect(reconciledInstance.ObjectMeta.Labels).To(Equal(map[string]string{
+				"apollo-controller/supergraph": supergraphName,
 				"app.kubernetes.io/instance":   "apollo-router",
 				"app.kubernetes.io/name":       "apollo-router",
-				"apollo-controller/supergraph": supergraphName,
 			}))
 
 			Expect(reconciledInstance.Spec.Template.Spec.Containers[0].Name).To(Equal("router"))
-			Expect(reconciledInstance.Spec.Template.Spec.Containers[0].Image).To(Equal("ghcr.io/apollo/router:v2.9.0"))
-			Expect(reconciledInstance.OwnerReferences[0].Name).Should(Equal(supergraph))
+			Expect(reconciledInstance.Spec.Template.Spec.Containers[0].Image).To(Equal("ghcr.io/apollographql/router:v2.9.0"))
+			Expect(reconciledInstance.OwnerReferences[0].Name).Should(Equal(supergraphName))
 		})
 
 		It("cleans up", func() {
@@ -210,9 +225,38 @@ var _ = Describe("SuperGraph controller", func() {
 	})
 
 	When("it reconciles a supergraph with a custom template", func() {
+		schemaName := fmt.Sprintf("supergraph-%s", randStringRunes(5))
 		supergraphName := fmt.Sprintf("supergraph-%s", randStringRunes(5))
+		var schema *v1beta1.SuperGraphSchema
 		var supergraph *v1beta1.SuperGraph
 		var replicas int32 = 3
+
+		It("creates a new schema", func() {
+			ctx := context.Background()
+
+			schema = &v1beta1.SuperGraphSchema{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      schemaName,
+					Namespace: "default",
+				},
+				Spec: v1beta1.SuperGraphSchemaSpec{},
+			}
+			Expect(k8sClient.Create(ctx, schema)).Should(Succeed())
+			schema.Status.ConfigMap.Name = schemaName
+			Expect(k8sClient.Status().Update(ctx, schema)).Should(Succeed())
+
+			cm := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      schemaName,
+					Namespace: "default",
+				},
+				Data: map[string]string{
+					"schema.graphql": "type Query { hello: String }",
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, cm)).Should(Succeed())
+		})
 
 		It("creates a new supergraph", func() {
 			ctx := context.Background()
@@ -223,6 +267,9 @@ var _ = Describe("SuperGraph controller", func() {
 					Namespace: "default",
 				},
 				Spec: v1beta1.SuperGraphSpec{
+					Schema: corev1.LocalObjectReference{
+						Name: schemaName,
+					},
 					DeploymentTemplate: &v1beta1.DeploymentTemplate{
 						Spec: v1beta1.DeploymentSpec{
 							Replicas: &replicas,
@@ -230,7 +277,7 @@ var _ = Describe("SuperGraph controller", func() {
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{
 										{
-											Name: "apollo-router",
+											Name: "router",
 											Env: []corev1.EnvVar{
 												{
 													Name:  "FOO",
@@ -276,31 +323,31 @@ var _ = Describe("SuperGraph controller", func() {
 			}, timeout, interval).Should(BeNil())
 
 			Expect(reconciledInstance.Spec.Template.ObjectMeta.Labels).To(Equal(map[string]string{
+				"apollo-controller/supergraph": supergraphName,
 				"app.kubernetes.io/instance":   "apollo-router",
 				"app.kubernetes.io/name":       "apollo-router",
-				"apollo-controller/supergraph": supergraphName,
 			}))
 
 			Expect(reconciledInstance.ObjectMeta.Labels).To(Equal(map[string]string{
+				"apollo-controller/supergraph": supergraphName,
 				"app.kubernetes.io/instance":   "apollo-router",
 				"app.kubernetes.io/name":       "apollo-router",
-				"apollo-controller/supergraph": supergraphName,
 			}))
 
 			Expect(reconciledInstance.Spec.Template.Spec.Containers[0].Name).To(Equal("router"))
-			Expect(reconciledInstance.Spec.Template.Spec.Containers[0].Image).To(Equal("ghcr.io/apollo/router:v2.9.0"))
+			Expect(reconciledInstance.Spec.Template.Spec.Containers[0].Image).To(Equal("ghcr.io/apollographql/router:v2.9.0"))
 			Expect(reconciledInstance.Spec.Template.Spec.Containers[0].Env).To(Equal([]corev1.EnvVar{
 				{
 					Name:  "FOO",
 					Value: "bar",
 				},
 			}))
-			Expect(reconciledInstance.OwnerReferences[0].Name).Should(Equal(supergraph))
+			Expect(reconciledInstance.OwnerReferences[0].Name).Should(Equal(supergraphName))
 		})
 
 		It("cleans up", func() {
 			ctx := context.Background()
 			Expect(k8sClient.Delete(ctx, supergraph)).Should(Succeed())
 		})
-	})*/
+	})
 })

@@ -76,10 +76,10 @@ jobs:
     strategy:
       matrix:
         kubernetes-version:
-        - "1.27"
-        - "1.28"
-        - "1.29"
-        - "1.30"
+        - "1.31"
+        - "1.32"
+        - "1.33"
+        - "1.34"
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf # v2.11.1
