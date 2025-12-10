@@ -179,17 +179,13 @@ spec:
 
 ## Suspend/Resume reconciliation
 
+All resources support suspending reconciliation.
 The reconciliation can be paused by setting `spec.suspend` to `true`:
  
+Example:
 ```
-kubectl patch SuperGraph default-p '{"spec":{"suspend": true}}' --type=merge
+kubectl patch supergraph default-p '{"spec":{"suspend": true}}' --type=merge
 ```
-
-## Observe SuperGraph reconciliation
-
-A `SuperGraph` will have all discovered resources populated in `.status.subResourceCatalog`.
-Also there are two conditions which are useful for observing `Ready` and a temporary one named `Reconciling`
-as long as a reconciliation is in progress.
 
 ## Installation
 

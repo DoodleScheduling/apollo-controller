@@ -556,6 +556,10 @@ subgraphs:
 					return err
 				}
 
+				if len(reconciledInstance.Status.SubResourceCatalog) != 2 {
+					return fmt.Errorf("expected catalog length %d, got %d", 2, len(reconciledInstance.Status.SubResourceCatalog))
+				}
+
 				return needsExactConditions(expectedStatus.Conditions, reconciledInstance.Status.Conditions)
 			}, timeout, interval).Should(Not(HaveOccurred()))
 
@@ -1063,6 +1067,10 @@ subgraphs:
 					return err
 				}
 
+				if len(reconciledInstance.Status.SubResourceCatalog) != 1 {
+					return fmt.Errorf("SubResourceCatalog is empty")
+				}
+
 				return needsExactConditions(expectedStatus.Conditions, reconciledInstance.Status.Conditions)
 			}, timeout, interval).Should(Not(HaveOccurred()))
 
@@ -1075,7 +1083,6 @@ subgraphs:
 				}, configMap)
 			}, timeout, interval).Should(Succeed())
 
-			Expect(configMap.Data).Should(HaveKey("supergraph.yaml"))
 			expectedYAML := fmt.Sprintf(`federation_version: 2
 subgraphs:
     %s:
@@ -1084,7 +1091,6 @@ subgraphs:
             file: /schemas/default.%s.graphql
 `, subName, subName)
 			Expect(configMap.Data["supergraph.yaml"]).Should(Equal(expectedYAML))
-
 			beforeUpdateStatus := reconciledInstance.Status
 
 			// Retry update in case of conflicts with SubGraph controller

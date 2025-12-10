@@ -683,6 +683,8 @@ func (r *SuperGraphSchemaReconciler) extendSuperWithSubGraphs(ctx context.Contex
 		)
 	})
 
+	var ready []infrav1beta1.SubGraph
+
 	for _, subgraph := range subgraphs.Items {
 		cm := &corev1.ConfigMap{}
 		err = r.Get(ctx, client.ObjectKey{Name: subgraph.Status.ConfigMap.Name, Namespace: subgraph.Namespace}, cm)
@@ -690,6 +692,8 @@ func (r *SuperGraphSchemaReconciler) extendSuperWithSubGraphs(ctx context.Contex
 			logger.Info("subgraph configmap not found, ignoring", "configmap", subgraph.Status.ConfigMap.Name, "namespace", subgraph.Namespace, "error", err)
 			continue
 		}
+
+		ready = append(ready, subgraph)
 
 		ref := infrav1beta1.ResourceReference{
 			Kind:       subgraph.Kind,
@@ -704,7 +708,7 @@ func (r *SuperGraphSchemaReconciler) extendSuperWithSubGraphs(ctx context.Contex
 		schema.Status.SubResourceCatalog = append(schema.Status.SubResourceCatalog, ref)
 	}
 
-	return schema, subgraphs.Items, nil
+	return schema, ready, nil
 }
 
 func (r *SuperGraphSchemaReconciler) patchStatus(ctx context.Context, schema *infrav1beta1.SuperGraphSchema) error {
