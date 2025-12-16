@@ -450,6 +450,10 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 	schema = infrav1beta1.SuperGraphSchemaReconciling(schema, metav1.ConditionTrue, "Progressing", "")
 
 	composeConfig, err := yaml.Marshal(config)
+	if err != nil {
+		return schema, ctrl.Result{}, fmt.Errorf("failed to marshal config: %w", err)
+	}
+
 	controllerOwner := true
 	template := &corev1.Pod{}
 

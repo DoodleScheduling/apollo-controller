@@ -125,12 +125,13 @@ var _ = Describe("SuperGraph controller", func() {
 				Spec: v1beta1.SuperGraphSchemaSpec{},
 			}
 			Expect(k8sClient.Create(ctx, schema)).Should(Succeed())
-			schema.Status.ConfigMap.Name = schemaName
+			configMapName := fmt.Sprintf("supergraph-schema-%s", schemaName)
+			schema.Status.ConfigMap.Name = configMapName
 			Expect(k8sClient.Status().Update(ctx, schema)).Should(Succeed())
 
 			cm := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      schemaName,
+					Name:      configMapName,
 					Namespace: "default",
 				},
 				Data: map[string]string{
@@ -242,12 +243,13 @@ var _ = Describe("SuperGraph controller", func() {
 				Spec: v1beta1.SuperGraphSchemaSpec{},
 			}
 			Expect(k8sClient.Create(ctx, schema)).Should(Succeed())
-			schema.Status.ConfigMap.Name = schemaName
+			configMapName := fmt.Sprintf("supergraph-schema-%s", schemaName)
+			schema.Status.ConfigMap.Name = configMapName
 			Expect(k8sClient.Status().Update(ctx, schema)).Should(Succeed())
 
 			cm := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      schemaName,
+					Name:      configMapName,
 					Namespace: "default",
 				},
 				Data: map[string]string{
