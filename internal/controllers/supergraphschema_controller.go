@@ -214,10 +214,11 @@ func (r *SuperGraphSchemaReconciler) reconcile(ctx context.Context, schema infra
 		return schema, ctrl.Result{}, err
 	}
 
+	logger.Info("start reconcile", "condf", schema.Status.Conditions)
+
 	checksum := r.subGraphCheckum(subgraphs)
 	logger.V(1).Info("schema checksum", "checksum", checksum)
 
-	supergraphConfig := r.createSuperGraphConfig(subgraphs)
 	pod := &corev1.Pod{}
 	configmap := &corev1.ConfigMap{}
 
@@ -297,12 +298,14 @@ func (r *SuperGraphSchemaReconciler) reconcile(ctx context.Context, schema infra
 		}
 	}
 
+	logger.Info("before handle", "condf", schema.Status.Conditions)
+
 	// handle reconciler pod state
 	if podErr == nil && pod.Name != "" {
 		return r.handlerReconcilerState(ctx, schema, pod, checksum, logger)
 	}
 
-	return r.createReconciler(ctx, schema, supergraphConfig, subgraphs, checksum, logger)
+	return r.createReconciler(ctx, schema, subgraphs, checksum, logger)
 }
 
 func (r *SuperGraphSchemaReconciler) subGraphCheckum(subgraphs []infrav1beta1.SubGraph) string {
@@ -334,6 +337,7 @@ func (r *SuperGraphSchemaReconciler) createSuperGraphConfig(subgraphs []infrav1b
 }
 
 func (r *SuperGraphSchemaReconciler) handlerReconcilerState(ctx context.Context, schema infrav1beta1.SuperGraphSchema, pod *corev1.Pod, checksum string, logger logr.Logger) (infrav1beta1.SuperGraphSchema, ctrl.Result, error) {
+	logger.Info("handlerState", "condf", schema.Status.Conditions)
 	var containerStatus *corev1.ContainerStatus
 	for _, container := range pod.Status.ContainerStatuses {
 		if container.Name == "rover" {
@@ -367,6 +371,8 @@ func (r *SuperGraphSchemaReconciler) handlerReconcilerState(ctx context.Context,
 		schema = infrav1beta1.SuperGraphSchemaReady(schema, metav1.ConditionTrue, "ReconciliationSucceeded", fmt.Sprintf("reconciler %s terminated with code 0", schema.Status.Reconciler.Name))
 		msg := "schema successfully composed"
 		r.Recorder.Event(&schema, "Normal", "info", msg)
+
+		logger.Info("exit reconciler", "condf", schema.Status.Conditions)
 
 		return schema, res, err
 	case containerStatus.State.Terminated != nil:
@@ -447,12 +453,13 @@ func (r *SuperGraphSchemaReconciler) updateSchemaStatus(ctx context.Context, sch
 	return schema, ctrl.Result{Requeue: true}, nil
 }
 
-func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schema infrav1beta1.SuperGraphSchema, config superGraphConfig, subgraphs []infrav1beta1.SubGraph, checksum string, logger logr.Logger) (infrav1beta1.SuperGraphSchema, ctrl.Result, error) {
+func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schema infrav1beta1.SuperGraphSchema, subgraphs []infrav1beta1.SubGraph, checksum string, logger logr.Logger) (infrav1beta1.SuperGraphSchema, ctrl.Result, error) {
 	r.Recorder.Event(&schema, "Normal", "info", "reconcile schema progressing")
 	schema = infrav1beta1.SuperGraphSchemaReady(schema, metav1.ConditionUnknown, "Progressing", "Reconciliation in progress")
 	schema = infrav1beta1.SuperGraphSchemaReconciling(schema, metav1.ConditionTrue, "Progressing", "")
 
-	composeConfig, err := yaml.Marshal(config)
+	supergraphConfig := r.createSuperGraphConfig(subgraphs)
+	composeConfig, err := yaml.Marshal(supergraphConfig)
 	if err != nil {
 		return schema, ctrl.Result{}, fmt.Errorf("failed to marshal config: %w", err)
 	}

@@ -126,7 +126,7 @@ kind-test: ## Deploy including test
 	kustomize build config/base/crd | kubectl --context kind-${CLUSTER} replace -f -
 	kubectl --context kind-${CLUSTER} -n apollo-system delete pods --all
 	kind load docker-image ${IMG} --name ${CLUSTER}
-	kustomize build config/tests/cases/${TEST_PROFILE} --enable-helm | kubectl --context kind-${CLUSTER} apply --server-side=true -f -
+	kustomize build config/tests/cases/${TEST_PROFILE} --enable-helm | kubectl --context kind-${CLUSTER} replace -f -
 	kubectl --context kind-${CLUSTER} -n apollo-system wait --for=condition=Ready pods -l control-plane=controller-manager -l app.kubernetes.io/managed-by!=Helm,app.kubernetes.io/name!=apollo-router --timeout=3m
 	kubectl --context kind-${CLUSTER} -n apollo-system wait --for=condition=Ready supergraphs -l control-plane=controller-manager -l app.kubernetes.io/managed-by!=Helm --timeout=3m
 	kubectl --context kind-${CLUSTER} -n apollo-system wait --for=condition=Ready pods -l app.kubernetes.io/managed-by!=Helm,app.kubernetes.io/name=apollo-router --timeout=3m

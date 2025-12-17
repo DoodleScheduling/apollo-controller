@@ -19,7 +19,7 @@ import (
 
 var _ = Describe("SuperGraphSchema controller", func() {
 	const (
-		timeout  = time.Second * 5
+		timeout  = time.Second * 3
 		interval = time.Millisecond * 50
 	)
 
@@ -205,6 +205,24 @@ subgraphs: {}
 				}
 
 				fmt.Printf("%#v\n\n", reconciledInstance.Status)
+
+				// Wait for the ConfigMap to exist, indicating the schema was successfully composed
+				if reconciledInstance.Status.ConfigMap.Name == "" {
+					return fmt.Errorf("configmap name is not set yet")
+				}
+
+				// Verify the ConfigMap actually exists
+				cm := &corev1.ConfigMap{}
+				err = k8sClient.Get(ctx, types.NamespacedName{
+					Name:      reconciledInstance.Status.ConfigMap.Name,
+					Namespace: reconciledInstance.Namespace,
+				}, cm)
+
+				fmt.Printf("%#v\n\n", cm)
+
+				if err != nil {
+					return fmt.Errorf("configmap does not exist yet: %w", err)
+				}
 
 				return needsExactConditions(expectedStatus.Conditions, reconciledInstance.Status.Conditions)
 			}, timeout, interval).Should(Not(HaveOccurred()))
