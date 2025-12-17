@@ -214,6 +214,7 @@ subgraphs: {}
 
 			By("cleaning up")
 			Expect(httpServer.Shutdown(context.Background())).Should(BeNil())
+			_ = listener.Close()
 		})
 	})
 
@@ -445,6 +446,7 @@ subgraphs:
 
 			By("cleaning up")
 			Expect(httpServer.Shutdown(context.Background())).Should(BeNil())
+			_ = listener.Close()
 		})
 	})
 

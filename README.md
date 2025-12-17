@@ -154,28 +154,51 @@ spec:
 ## SuperGraphSchema rover reconciler template
 
 The super graph schema composer emits a custom rover reconciler pod which composes the
-super graph config. The reconciler pod can be customized:
+super graph config. The pod also comes with an httpd sidecar. The reconciler pod can be customized:
 
 ```yaml
 apiVersion: apollo.infra.doodle.com/v1beta1
 kind: SuperGraphSchema
 metadata:
-  name: root-schema
+  name: root
 spec:
   subGraphSelector:
     matchLabels: {}
   reconcilerTemplate:
     spec:
       containers:
-      - name: rover
+      - env:
+        - name: APOLLO_ELV2_LICENSE
+          value: accept
+        image: ghcr.io/doodlescheduling/rover:v0.37.0@sha256:1bc6ab95060939d55cd899d25ae8f9686bcef2bf598bac2ecf655921d5232f00
+        name: rover
         resources:
-          request:
-            memory: 24Mi
-            cpu: 50m
-          limit:
-            memory: 24Mi
+          limits:
+            memory: 256Mi
+          requests:
+            cpu: 15m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsGroup: 65532
+          runAsNonRoot: true
+          runAsUser: 65532
+      - image: busybox:1@sha256:d80cd694d3e9467884fcb94b8ca1e20437d8a501096cdf367a5a1918a34fc2fd
+        name: httpd
+        resources:
+          limits:
+            memory: 50Mi
+          requests:
+            cpu: 15m
+            memory: 30Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsGroup: 65532
+          runAsNonRoot: true
+          runAsUser: 65532
 ```
-
 
 ## Suspend/Resume reconciliation
 

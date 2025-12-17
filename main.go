@@ -80,10 +80,10 @@ func main() {
 		"The number of concurrent SwaggerHub reconciles.")
 	flag.DurationVar(&gracefulShutdownTimeout, "graceful-shutdown-timeout", 600*time.Second,
 		"The duration given to the reconciler to finish before forcibly stopping.")
-	flag.StringVar(&defaultRoverImage, "default-rover-image", "ghcr.io/doodlescheduling/rover:latest",
-		"The default rover cli image if not specified elsewhere.")
-	flag.StringVar(&defaultHTTPDImage, "default-httpd-image", "busybox:latest",
-		"The default image which provides /usr/sbin/httpd.")
+	flag.StringVar(&defaultRoverImage, "default-rover-image", "ghcr.io/doodlescheduling/rover:v0",
+		"The default rover cli image.")
+	flag.StringVar(&defaultHTTPDImage, "default-httpd-image", "busybox:1",
+		"The default image which provides an http server to serve the directory /output. By default httpd (busybox) is used.")
 
 	clientOptions.BindFlags(flag.CommandLine)
 	logOptions.BindFlags(flag.CommandLine)
