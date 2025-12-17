@@ -157,6 +157,11 @@ subgraphs: {}
 				_ = httpServer.Serve(listener)
 			}()
 
+			defer func() {
+				_ = httpServer.Shutdown(context.Background())
+				_ = listener.Close()
+			}()
+
 			By("setting the reconciler pod as done")
 			reconcilerPodName := reconciledInstance.Status.Reconciler.Name
 			pod := &corev1.Pod{}
@@ -211,10 +216,6 @@ subgraphs: {}
 			}, pod)).ShouldNot(BeNil())
 
 			Expect(reconciledInstance.Status.Reconciler.Name).Should(Equal(""))
-
-			By("cleaning up")
-			Expect(httpServer.Shutdown(context.Background())).Should(BeNil())
-			_ = listener.Close()
 		})
 	})
 
@@ -370,6 +371,11 @@ subgraphs:
 				_ = httpServer.Serve(listener)
 			}()
 
+			defer func() {
+				_ = httpServer.Shutdown(context.Background())
+				_ = listener.Close()
+			}()
+
 			By("setting the reconciler pod as done")
 			reconcilerPodName := reconciledInstance.Status.Reconciler.Name
 
@@ -443,10 +449,6 @@ subgraphs:
 			Expect(composedSchema.Data).Should(HaveKey("schema.graphql"))
 			expectedSchema := `type Query { hello: String }`
 			Expect(composedSchema.Data["schema.graphql"]).Should(Equal(expectedSchema))
-
-			By("cleaning up")
-			Expect(httpServer.Shutdown(context.Background())).Should(BeNil())
-			_ = listener.Close()
 		})
 	})
 
