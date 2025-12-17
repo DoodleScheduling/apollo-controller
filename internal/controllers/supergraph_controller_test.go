@@ -244,8 +244,17 @@ var _ = Describe("SuperGraph controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, schema)).Should(Succeed())
 			configMapName := fmt.Sprintf("supergraph-schema-%s", schemaName)
-			schema.Status.ConfigMap.Name = configMapName
-			Expect(k8sClient.Status().Update(ctx, schema)).Should(Succeed())
+			instanceLookupKey := types.NamespacedName{Name: schemaName, Namespace: "default"}
+
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, instanceLookupKey, schema)
+				if err != nil {
+					return err
+				}
+
+				schema.Status.ConfigMap.Name = configMapName
+				return k8sClient.Status().Update(ctx, schema)
+			}, timeout, interval).Should(Not(HaveOccurred()))
 
 			cm := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
