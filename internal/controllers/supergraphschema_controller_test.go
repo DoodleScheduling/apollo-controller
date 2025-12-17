@@ -204,6 +204,8 @@ subgraphs: {}
 					return err
 				}
 
+				fmt.Printf("%#v\n\n", reconciledInstance.Status)
+
 				return needsExactConditions(expectedStatus.Conditions, reconciledInstance.Status.Conditions)
 			}, timeout, interval).Should(Not(HaveOccurred()))
 
