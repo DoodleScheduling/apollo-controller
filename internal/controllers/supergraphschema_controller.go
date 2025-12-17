@@ -386,7 +386,10 @@ func (r *SuperGraphSchemaReconciler) updateSchemaStatus(ctx context.Context, sch
 	if err != nil {
 		return schema, ctrl.Result{}, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	logger.Info("scrape result", "url", scrapeURL, "http-code", resp.StatusCode, "content-length", resp.ContentLength)
 	if resp.StatusCode != http.StatusOK {
@@ -416,7 +419,7 @@ func (r *SuperGraphSchemaReconciler) updateSchemaStatus(ctx context.Context, sch
 			},
 		},
 		Data: map[string]string{
-			"schema.graphql": string(buf.Bytes()),
+			"schema.graphql": buf.String(),
 		},
 	}
 

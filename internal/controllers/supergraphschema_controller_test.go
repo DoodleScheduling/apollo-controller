@@ -147,18 +147,14 @@ subgraphs: {}
 				Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					if r.URL.Path == "/schema.graphql" {
 						w.WriteHeader(http.StatusOK)
-						w.Write([]byte("type Query { hello: String }"))
+						_, _ = w.Write([]byte("type Query { hello: String }"))
 					} else {
 						w.WriteHeader(http.StatusNotFound)
 					}
 				}),
 			}
 			go func() {
-				httpServer.Serve(listener)
-			}()
-			defer func() {
-				httpServer.Shutdown(context.Background())
-				listener.Close()
+				_ = httpServer.Serve(listener)
 			}()
 
 			By("setting the reconciler pod as done")
@@ -215,6 +211,9 @@ subgraphs: {}
 			}, pod)).ShouldNot(BeNil())
 
 			Expect(reconciledInstance.Status.Reconciler.Name).Should(Equal(""))
+
+			By("cleaning up")
+			Expect(httpServer.Shutdown(context.Background())).Should(BeNil())
 		})
 	})
 
@@ -360,18 +359,14 @@ subgraphs:
 				Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					if r.URL.Path == "/schema.graphql" {
 						w.WriteHeader(http.StatusOK)
-						w.Write([]byte("type Query { hello: String }"))
+						_, _ = w.Write([]byte("type Query { hello: String }"))
 					} else {
 						w.WriteHeader(http.StatusNotFound)
 					}
 				}),
 			}
 			go func() {
-				httpServer.Serve(listener)
-			}()
-			defer func() {
-				httpServer.Shutdown(context.Background())
-				listener.Close()
+				_ = httpServer.Serve(listener)
 			}()
 
 			By("setting the reconciler pod as done")
@@ -447,6 +442,9 @@ subgraphs:
 			Expect(composedSchema.Data).Should(HaveKey("schema.graphql"))
 			expectedSchema := `type Query { hello: String }`
 			Expect(composedSchema.Data["schema.graphql"]).Should(Equal(expectedSchema))
+
+			By("cleaning up")
+			Expect(httpServer.Shutdown(context.Background())).Should(BeNil())
 		})
 	})
 
@@ -746,6 +744,15 @@ subgraphs:
 			}
 			Expect(k8sClient.Create(ctx, sub)).Should(Succeed())
 
+			By("waiting for the subgraph to be ready")
+			Eventually(func() bool {
+				subgraphReady := &v1beta1.SubGraph{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: subName, Namespace: "default"}, subgraphReady); err != nil {
+					return false
+				}
+				return subgraphReady.Status.ConfigMap.Name != ""
+			}, timeout, interval).Should(BeTrue())
+
 			Eventually(func() error {
 				err := k8sClient.Get(ctx, instanceLookupKey, reconciledInstance)
 				if err != nil {
@@ -774,18 +781,36 @@ subgraphs:
 			Expect(reconciledInstance.Status.SubResourceCatalog).Should(Equal(catalog))
 
 			By("validating the composeConfig ConfigMap")
+			// Subgraph created without endpoint, so routing_url should be empty
+			expectedYAML := fmt.Sprintf("federation_version: 2\nsubgraphs:\n    %s:\n        routing_url: \"\"\n        schema:\n            file: /schemas/default.%s.graphql\n", subName, subName)
 			configMap := &corev1.ConfigMap{}
 			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{
+				// Re-fetch the instance to get the latest reconciler name (it might have changed)
+				err := k8sClient.Get(ctx, instanceLookupKey, reconciledInstance)
+				if err != nil {
+					return err
+				}
+
+				if reconciledInstance.Status.Reconciler.Name == "" {
+					return fmt.Errorf("reconciler name is empty")
+				}
+
+				err = k8sClient.Get(ctx, types.NamespacedName{
 					Name:      reconciledInstance.Status.Reconciler.Name,
 					Namespace: reconciledInstance.Namespace,
 				}, configMap)
+				if err != nil {
+					return err
+				}
+
+				if configMap.Data["supergraph.yaml"] != expectedYAML {
+					return fmt.Errorf("expected yaml %s, got %s", expectedYAML, configMap.Data["supergraph.yaml"])
+				}
+
+				return nil
 			}, timeout, interval).Should(Succeed())
 
 			Expect(configMap.Data).Should(HaveKey("supergraph.yaml"))
-			// Subgraph created without endpoint, so routing_url should be empty
-			expectedYAML := fmt.Sprintf("federation_version: 2\nsubgraphs:\n    %s:\n        routing_url: \"\"\n        schema:\n            file: /schemas/default.%s.graphql\n", subName, subName)
-			Expect(configMap.Data["supergraph.yaml"]).Should(Equal(expectedYAML))
 		})
 	})
 
@@ -811,6 +836,15 @@ subgraphs:
 				},
 			}
 			Expect(k8sClient.Create(ctx, sub)).Should(Succeed())
+
+			By("waiting for the subgraph to be ready")
+			Eventually(func() bool {
+				subgraphReady := &v1beta1.SubGraph{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: subName, Namespace: "default"}, subgraphReady); err != nil {
+					return false
+				}
+				return subgraphReady.Status.ConfigMap.Name != ""
+			}, timeout, interval).Should(BeTrue())
 
 			schema := &v1beta1.SuperGraphSchema{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1094,6 +1128,15 @@ subgraphs:
 			}
 			Expect(k8sClient.Create(ctx, sub)).Should(Succeed())
 
+			By("waiting for the subgraph to be ready")
+			Eventually(func() bool {
+				subgraphReady := &v1beta1.SubGraph{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: subName, Namespace: "default"}, subgraphReady); err != nil {
+					return false
+				}
+				return subgraphReady.Status.ConfigMap.Name != ""
+			}, timeout, interval).Should(BeTrue())
+
 			schema := &v1beta1.SuperGraphSchema{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      schemaName,
@@ -1155,7 +1198,17 @@ subgraphs:
 
 			configMap := &corev1.ConfigMap{}
 			Eventually(func() error {
-				err := k8sClient.Get(ctx, types.NamespacedName{
+				// Re-fetch the instance to get the latest reconciler name (it might have changed)
+				err := k8sClient.Get(ctx, instanceLookupKey, reconciledInstance)
+				if err != nil {
+					return err
+				}
+
+				if reconciledInstance.Status.Reconciler.Name == "" {
+					return fmt.Errorf("reconciler name is empty")
+				}
+
+				err = k8sClient.Get(ctx, types.NamespacedName{
 					Name:      reconciledInstance.Status.Reconciler.Name,
 					Namespace: reconciledInstance.Namespace,
 				}, configMap)

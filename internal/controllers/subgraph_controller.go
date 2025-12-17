@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"net/http"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -45,10 +44,6 @@ type SubGraphReconciler struct {
 	Log      logr.Logger
 	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
-}
-
-type httpClient interface {
-	Do(req *http.Request) (*http.Response, error)
 }
 
 type SubGraphReconcilerOptions struct {
