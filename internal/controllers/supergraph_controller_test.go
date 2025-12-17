@@ -16,7 +16,7 @@ import (
 
 var _ = Describe("SuperGraph controller", func() {
 	const (
-		timeout  = time.Second * 4
+		timeout  = time.Second * 3
 		interval = time.Millisecond * 200
 	)
 

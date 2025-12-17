@@ -15,7 +15,7 @@ import (
 
 var _ = Describe("SubGraph controller", func() {
 	const (
-		timeout  = time.Second * 4
+		timeout  = time.Second * 3
 		interval = time.Millisecond * 200
 	)
 

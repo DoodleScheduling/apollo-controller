@@ -177,6 +177,7 @@ func (r *SuperGraphSchemaReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	schema, result, err := r.reconcile(ctx, schema, logger)
 	schema.Status.ObservedGeneration = schema.GetGeneration()
+	logger.Info("afer reconcile()", "condf", schema.Status.Conditions)
 
 	if err != nil {
 		logger.Error(err, "reconcile error occurred")
@@ -185,10 +186,13 @@ func (r *SuperGraphSchemaReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// Update status after reconciliation.
+	logger.Info("patchStatus reconcile()", "condf", schema.Status.Conditions)
+
 	if err := r.patchStatus(ctx, &schema); err != nil {
 		logger.Error(err, "unable to update status after reconciliation")
 		return ctrl.Result{}, err
 	}
+	logger.Info("last reconcile()", "condf", schema.Status.Conditions)
 
 	return result, err
 }
@@ -302,7 +306,7 @@ func (r *SuperGraphSchemaReconciler) reconcile(ctx context.Context, schema infra
 
 	// handle reconciler pod state
 	if podErr == nil && pod.Name != "" {
-		return r.handlerReconcilerState(ctx, schema, pod, checksum, logger)
+		return r.handleReconcilerState(ctx, schema, pod, checksum, logger)
 	}
 
 	return r.createReconciler(ctx, schema, subgraphs, checksum, logger)
@@ -336,7 +340,7 @@ func (r *SuperGraphSchemaReconciler) createSuperGraphConfig(subgraphs []infrav1b
 	return config
 }
 
-func (r *SuperGraphSchemaReconciler) handlerReconcilerState(ctx context.Context, schema infrav1beta1.SuperGraphSchema, pod *corev1.Pod, checksum string, logger logr.Logger) (infrav1beta1.SuperGraphSchema, ctrl.Result, error) {
+func (r *SuperGraphSchemaReconciler) handleReconcilerState(ctx context.Context, schema infrav1beta1.SuperGraphSchema, pod *corev1.Pod, checksum string, logger logr.Logger) (infrav1beta1.SuperGraphSchema, ctrl.Result, error) {
 	logger.Info("handlerState", "condf", schema.Status.Conditions)
 	var containerStatus *corev1.ContainerStatus
 	for _, container := range pod.Status.ContainerStatuses {
@@ -509,7 +513,7 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 			Command: []string{
 				"/bin/sh",
 				"-c",
-				"rover supergraph compose --config /supergraph/supergraph.yaml --skip-update-check > /output/schema.graphql",
+				"rover supergraph compose --config /supergraph/supergraph.yaml --skip-update-check --skip-update > /output/schema.graphql",
 			},
 			Image: r.DefaultRoverImage,
 			VolumeMounts: []corev1.VolumeMount{
