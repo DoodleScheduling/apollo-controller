@@ -176,10 +176,10 @@ jobs:
         if: failure()
         run: |
           kubectl -n kube-system describe pods
-          kubectl -n swagger-system describe pods
-          kubectl -n swagger-system get all
-          kubectl -n swagger-system logs deploy/apollo-controller
-          kubectl -n swagger-system get swaggerhubs -o yaml
+          kubectl -n apollo-system describe pods
+          kubectl -n apollo-system get all
+          kubectl -n apollo-system logs deploy/apollo-controller
+          kubectl -n apollo-system get supergraphs,supergraphschemas -o yaml
 
   test-chart: 
     runs-on: ubuntu-latest
