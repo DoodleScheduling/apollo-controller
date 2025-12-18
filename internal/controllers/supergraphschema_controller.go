@@ -175,6 +175,7 @@ func (r *SuperGraphSchemaReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if schema.Spec.Suspend {
 		return ctrl.Result{}, nil
 	}
+	logger.Info("BEFORE reconcile()", "condf", schema.Status.Conditions, "version", schema.ResourceVersion)
 
 	schema, result, err := r.reconcile(ctx, schema, logger)
 	schema.Status.ObservedGeneration = schema.GetGeneration()
@@ -193,7 +194,7 @@ func (r *SuperGraphSchemaReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		logger.Error(err, "unable to update status after reconciliation")
 		return ctrl.Result{}, err
 	}
-	logger.Info("last reconcile()", "condf", schema.Status.Conditions)
+	logger.Info("last reconcile()", "condf", schema.Status.Conditions, "version", schema.ResourceVersion)
 
 	return result, err
 }
