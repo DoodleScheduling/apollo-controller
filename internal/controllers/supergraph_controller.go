@@ -47,8 +47,8 @@ import (
 // +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=supergraphschemas,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=supergraphschemas/status,verbs=get
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;watch;list
-// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;update;patch;delete;watch;list
-// +kubebuilder:rbac:groups="",resources=services,verbs=get;update;patch;delete;watch;list
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=create;get;update;patch;delete;watch;list
+// +kubebuilder:rbac:groups="",resources=services,verbs=create;get;update;patch;delete;watch;list
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;update;patch;delete;watch;list
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
