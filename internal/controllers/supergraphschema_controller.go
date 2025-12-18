@@ -293,7 +293,7 @@ func (r *SuperGraphSchemaReconciler) reconcile(ctx context.Context, schema infra
 
 		if configmapErr == nil && schema.Status.ObservedSHA256Checksum == checksum {
 			if schema.Spec.Interval != nil {
-				logger.V(1).Info("skip reconciliation due checksum match, requeue ", "after", schema.Spec.Interval.Duration)
+				logger.V(1).Info("skip reconciliation due checksum match, requeue", "after", schema.Spec.Interval.Duration)
 
 				return schema, ctrl.Result{
 					RequeueAfter: schema.Spec.Interval.Duration,
