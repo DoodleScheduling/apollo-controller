@@ -55,6 +55,10 @@ type SuperGraphSchemaSpec struct {
 	// +optional
 	Suspend bool `json:"suspend,omitempty"`
 
+	// FederationVersion
+	// +kubebuilder:default="2"
+	FederationVersion string `json:"federationVersion"`
+
 	Timeout  *metav1.Duration `json:"timeout,omitempty"`
 	Interval *metav1.Duration `json:"interval,omitempty"`
 
@@ -87,6 +91,8 @@ type SuperGraphSchemaStatus struct {
 
 	Reconciler corev1.LocalObjectReference `json:"reconciler,omitempty"`
 
+	ComposeErrors []ComposeError `json:"composeErrors,omitempty"`
+
 	ObservedSHA256Checksum string `json:"observedSHA256Checksum,omitempty"`
 
 	// ConfigMap reference
@@ -97,6 +103,12 @@ type SuperGraphSchemaStatus struct {
 
 	// SubResourceCatalog holds discovered references to all sub resources including SwaggerDefinition and SwaggerUnification associated with this hub
 	SubResourceCatalog []ResourceReference `json:"subResourceCatalog,omitempty"`
+}
+
+type ComposeError struct {
+	Message string `json:"message,omitempty"`
+	Code    string `json:"code,omitempty"`
+	Type    string `json:"type,omitempty"`
 }
 
 // ResourceReference metadata to lookup another resource

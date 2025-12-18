@@ -8,7 +8,7 @@
 [![license](https://img.shields.io/github/license/DoodleScheduling/apollo-controller.svg)](https://github.com/DoodleScheduling/apollo-controller/blob/master/LICENSE)
 
 This controller manages the [Apollo GraphQL](https://apollo.io/tools/apollo/) router.
-The controller can lookup `SubGraph` resources and compose a `SuperGraphSchema` using `rover`.
+The controller can lookup `SubGraph` resources and compose a `SuperGraphSchema` using the official supergraph composer plugin.
 A router can be deployed using a `SuperGraph` which uses a composed `SuperGraphSchema`.
 
 ### Beta API notice
@@ -83,11 +83,6 @@ Similar to the `subGraphSelector` it is possible to match sub graphs cross names
 By default a `SuperGraphSchema` only looks up sub graphs from the same namespace but with a namespace selector this behaviour can be changed.
 Using `namespaceSelector.matchLabels: {}` will lookup sub graphs across all namespaces.
 
-
-**IMPORTANT**: The apollo-controller uses [doodlescheduling/rover](https://github.com/DoodleScheduling/rover) as image for the apollo rover cli since the is no official one.
-rover requires you as a user to accept the license, by design we do not package this acknowledgment. You will need agree to the [license](https://www.apollographql.com/trust/licensing) via the reconciler template as follow
-or package your own rover image.
-
 ```yaml
 apiVersion: apollo.infra.doodle.com/v1beta1
 kind: SuperGraphSchema
@@ -96,15 +91,6 @@ metadata:
 spec:
   subGraphSelector:
     matchLabels: {}
-  reconcilerTemplate:
-    metadata:
-      namespace: controller-namespace
-    spec:
-      containers:
-      - name: rover
-        env:
-        - name: APOLLO_ELV2_LICENSE
-          value: accept
 ```
 
 Deploy a router:
@@ -117,6 +103,26 @@ spec:
   schema:
     name: root-schema
   routerConfig: {}
+```
+
+## Resource Dependencies
+```mermaid
+flowchart LR
+    SuperGraph["SuperGraph"]
+    SuperGraphSchema["SuperGraphSchema"]
+    Subgraph1["SubGraph A"]
+    Subgraph2["SubGraph B"]
+    Subgraph3["SubGraph C"]
+    Deployment["Apollo Router"]
+    SchemaReconciler["SuperGraph Composer Pod"]
+
+    SuperGraphSchema --> SchemaReconciler
+    SuperGraphSchema --> SuperGraph
+    Subgraph1 --> SuperGraphSchema
+    Subgraph2 --> SuperGraphSchema
+    Subgraph3 --> SuperGraphSchema
+
+    SuperGraph --> Deployment
 ```
 
 ## Router deployment template
@@ -151,45 +157,61 @@ spec:
             image: mysidecar
 ```
 
-## SuperGraphSchema rover reconciler template
+## SuperGraphSchema reconciler template
 
-The super graph schema composer emits a custom rover reconciler pod which composes the
-super graph config. The reconciler pod can be customized:
+The super graph schema composer emits a custom supergraph reconciler pod which composes the
+super graph config. The pod also comes with an httpd sidecar. The reconciler pod can be customized:
 
 ```yaml
 apiVersion: apollo.infra.doodle.com/v1beta1
 kind: SuperGraphSchema
 metadata:
-  name: root-schema
+  name: root
 spec:
   subGraphSelector:
     matchLabels: {}
   reconcilerTemplate:
     spec:
       containers:
-      - name: rover
+      - image: ghcr.io/doodlescheduling/supergraph:v2.12.1@sha256:ec33ca19c8180122393b809d409dcbabaa30f8e6f6bb67655149859eb2afcfcd
+        name: supergraph-composer
         resources:
-          request:
-            memory: 24Mi
-            cpu: 50m
-          limit:
-            memory: 24Mi
+          limits:
+            memory: 256Mi
+          requests:
+            cpu: 15m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsGroup: 65532
+          runAsNonRoot: true
+          runAsUser: 65532
+      - image: busybox:1@sha256:d80cd694d3e9467884fcb94b8ca1e20437d8a501096cdf367a5a1918a34fc2fd
+        name: httpd
+        resources:
+          limits:
+            memory: 50Mi
+          requests:
+            cpu: 15m
+            memory: 30Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsGroup: 65532
+          runAsNonRoot: true
+          runAsUser: 65532
 ```
-
 
 ## Suspend/Resume reconciliation
 
+All resources support suspending reconciliation.
 The reconciliation can be paused by setting `spec.suspend` to `true`:
  
+Example:
 ```
-kubectl patch SuperGraph default-p '{"spec":{"suspend": true}}' --type=merge
+kubectl patch supergraph default-p '{"spec":{"suspend": true}}' --type=merge
 ```
-
-## Observe SuperGraph reconciliation
-
-A `SuperGraph` will have all discovered resources populated in `.status.subResourceCatalog`.
-Also there are two conditions which are useful for observing `Ready` and a temporary one named `Reconciling`
-as long as a reconciliation is in progress.
 
 ## Installation
 

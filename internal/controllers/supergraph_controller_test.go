@@ -16,7 +16,7 @@ import (
 
 var _ = Describe("SuperGraph controller", func() {
 	const (
-		timeout  = time.Second * 4
+		timeout  = time.Second * 3
 		interval = time.Millisecond * 200
 	)
 
@@ -125,12 +125,22 @@ var _ = Describe("SuperGraph controller", func() {
 				Spec: v1beta1.SuperGraphSchemaSpec{},
 			}
 			Expect(k8sClient.Create(ctx, schema)).Should(Succeed())
-			schema.Status.ConfigMap.Name = schemaName
-			Expect(k8sClient.Status().Update(ctx, schema)).Should(Succeed())
+			configMapName := fmt.Sprintf("supergraph-schema-%s", schemaName)
+			instanceLookupKey := types.NamespacedName{Name: schemaName, Namespace: "default"}
+
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, instanceLookupKey, schema)
+				if err != nil {
+					return err
+				}
+
+				schema.Status.ConfigMap.Name = configMapName
+				return k8sClient.Status().Update(ctx, schema)
+			}, timeout, interval).Should(Not(HaveOccurred()))
 
 			cm := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      schemaName,
+					Name:      configMapName,
 					Namespace: "default",
 				},
 				Data: map[string]string{
@@ -242,12 +252,22 @@ var _ = Describe("SuperGraph controller", func() {
 				Spec: v1beta1.SuperGraphSchemaSpec{},
 			}
 			Expect(k8sClient.Create(ctx, schema)).Should(Succeed())
-			schema.Status.ConfigMap.Name = schemaName
-			Expect(k8sClient.Status().Update(ctx, schema)).Should(Succeed())
+			configMapName := fmt.Sprintf("supergraph-schema-%s", schemaName)
+			instanceLookupKey := types.NamespacedName{Name: schemaName, Namespace: "default"}
+
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, instanceLookupKey, schema)
+				if err != nil {
+					return err
+				}
+
+				schema.Status.ConfigMap.Name = configMapName
+				return k8sClient.Status().Update(ctx, schema)
+			}, timeout, interval).Should(Not(HaveOccurred()))
 
 			cm := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      schemaName,
+					Name:      configMapName,
 					Namespace: "default",
 				},
 				Data: map[string]string{

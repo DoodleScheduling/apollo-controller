@@ -85,11 +85,11 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&SuperGraphSchemaReconciler{
-		Client:            k8sManager.GetClient(),
-		Log:               ctrl.Log.WithName("controllers").WithName("SuperGraphSchmea"),
-		Recorder:          k8sManager.GetEventRecorderFor("SuperGraphSchmea"),
-		DefaultRoverImage: "rover:v0",
-		DefaultHTTPDImage: "busybox:v0",
+		Client:                 k8sManager.GetClient(),
+		Log:                    ctrl.Log.WithName("controllers").WithName("SuperGraphSchma"),
+		Recorder:               k8sManager.GetEventRecorderFor("SuperGraphSchma"),
+		DefaultSuperGraphImage: "supergraph:v0",
+		DefaultHTTPDImage:      "busybox:v0",
 	}).SetupWithManager(k8sManager, SuperGraphSchemaReconcilerOptions{})
 	Expect(err).ToNot(HaveOccurred())
 

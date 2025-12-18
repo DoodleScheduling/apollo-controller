@@ -11,6 +11,7 @@ rules:
   - pods
   - services
   verbs:
+  - create
   - delete
   - get
   - list
@@ -67,6 +68,7 @@ rules:
   resources:
   - deployments
   verbs:
+  - create
   - delete
   - get
   - list
