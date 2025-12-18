@@ -275,6 +275,14 @@ func (r *SuperGraphSchemaReconciler) reconcile(ctx context.Context, schema infra
 		return schema, ctrl.Result{Requeue: true}, cleanup()
 	}
 
+	// garbage collect reconciler pod
+	readyCondition := conditions.Get(&schema, infrav1beta1.ConditionReady)
+	progressingCondition := conditions.Get(&schema, infrav1beta1.ConditionReconciling)
+	if progressingCondition != nil && readyCondition != nil && readyCondition.Status == metav1.ConditionTrue && podErr == nil && schema.Status.Reconciler.Name != "" {
+		logger.V(1).Info("garbage collect reconciler pod", "pod-name", schema.Status.Reconciler.Name)
+		return schema, ctrl.Result{Requeue: true}, cleanup()
+	}
+
 	if schema.Status.ConfigMap.Name != "" {
 		configmap := &corev1.ConfigMap{}
 		configmapErr = r.Get(ctx, client.ObjectKey{Name: schema.Status.ConfigMap.Name, Namespace: schema.Namespace}, configmap)
@@ -291,7 +299,7 @@ func (r *SuperGraphSchemaReconciler) reconcile(ctx context.Context, schema infra
 					RequeueAfter: schema.Spec.Interval.Duration,
 				}, nil
 			} else {
-				logger.V(1).Info("skip reconciliation due checksum match ")
+				logger.V(1).Info("skip reconciliation due checksum match")
 				return schema, ctrl.Result{}, nil
 			}
 		}
@@ -362,16 +370,12 @@ func (r *SuperGraphSchemaReconciler) handleReconcilerState(ctx context.Context, 
 			return schema, result, err
 		}
 
-		if err := r.Delete(ctx, pod); err != nil && !apierrors.IsNotFound(err) {
-			return schema, result, fmt.Errorf("could not delete reconciler pod: %w", err)
-		}
-
 		schema.Status.ComposeErrors = nil
 		schema.Status.ObservedSHA256Checksum = checksum
 		schema = infrav1beta1.SuperGraphSchemaReady(schema, metav1.ConditionTrue, "ReconciliationSucceeded", fmt.Sprintf("reconciler %s terminated with code 0", schema.Status.Reconciler.Name))
 		msg := "schema successfully composed"
 		r.Recorder.Event(&schema, "Normal", "info", msg)
-		return schema, ctrl.Result{}, nil
+		return schema, ctrl.Result{Requeue: true}, nil
 	}
 
 	schema.Status.ComposeErrors = nil
