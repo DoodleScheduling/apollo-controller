@@ -128,7 +128,7 @@ kind-test: ## Deploy including test
 	kind load docker-image ${IMG} --name ${CLUSTER}
 	kustomize build config/tests/cases/${TEST_PROFILE} --enable-helm | kubectl --context kind-${CLUSTER} apply --server-side=true --force-conflicts -f -
 	kubectl --context kind-${CLUSTER} -n apollo-system wait --for=condition=Ready pods -l control-plane=controller-manager -l app.kubernetes.io/managed-by!=Helm,app.kubernetes.io/name!=apollo-router --timeout=3m
-	kubectl --context kind-${CLUSTER} -n apollo-system wait --for=condition=Ready supergraphs -l control-plane=controller-manager -l app.kubernetes.io/managed-by!=Helm --timeout=3m
+	kubectl --context kind-${CLUSTER} -n apollo-system wait --for=condition=Ready supergraphs --timeout=3m --all
 	kubectl --context kind-${CLUSTER} -n apollo-system wait --for=condition=Ready pods -l app.kubernetes.io/managed-by!=Helm,app.kubernetes.io/name=apollo-router --timeout=3m
 
 CONTROLLER_GEN = $(GOBIN)/controller-gen

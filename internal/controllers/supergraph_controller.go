@@ -195,6 +195,10 @@ func (r *SuperGraphReconciler) reconcile(ctx context.Context, supergraph infrav1
 		return supergraph, ctrl.Result{}, fmt.Errorf("schema %s not found", supergraph.Spec.Schema.Name)
 	}
 
+	if graphschema.Status.ConfigMap.Name == "" {
+		return supergraph, ctrl.Result{}, fmt.Errorf("supergraphschema is not ready")
+	}
+
 	var schema corev1.ConfigMap
 	err = r.Get(ctx, client.ObjectKey{
 		Namespace: graphschema.Namespace,

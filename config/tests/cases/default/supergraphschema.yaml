@@ -5,10 +5,3 @@ metadata:
 spec:
   subGraphSelector:
     matchLabels: {}
-  reconcilerTemplate:
-    spec:
-      containers:
-      - name: rover
-        env:
-        - name: APOLLO_ELV2_LICENSE
-          value: accept
