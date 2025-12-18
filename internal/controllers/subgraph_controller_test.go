@@ -8,7 +8,6 @@ import (
 	"github.com/DoodleScheduling/apollo-controller/api/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -92,15 +91,6 @@ var _ = Describe("SubGraph controller", func() {
 			eventuallyMatchExactConditions(ctx, instanceLookupKey, reconciledInstance, expectedStatus)
 		})
 
-		It("should not create a configmap", func() {
-			instanceLookupKey := types.NamespacedName{Name: fmt.Sprintf("subgraph-schema-%s", subgraphName), Namespace: "default"}
-			reconciledInstance := &corev1.ConfigMap{}
-
-			Eventually(func() error {
-				return k8sClient.Get(ctx, instanceLookupKey, reconciledInstance)
-			}, timeout, interval).ShouldNot(BeNil())
-		})
-
 		It("cleans up", func() {
 			ctx := context.Background()
 			Expect(k8sClient.Delete(ctx, subgraph)).Should(Succeed())
@@ -140,24 +130,11 @@ var _ = Describe("SubGraph controller", func() {
 						Type:    v1beta1.ConditionReady,
 						Status:  metav1.ConditionTrue,
 						Reason:  "ReconciliationSuccessful",
-						Message: fmt.Sprintf("configmap/subgraph-schema-%s created", subgraphName),
+						Message: "schema available",
 					},
 				},
 			}
 			eventuallyMatchExactConditions(ctx, instanceLookupKey, reconciledInstance, expectedStatus)
-		})
-
-		It("should create a configmap", func() {
-			instanceLookupKey := types.NamespacedName{Name: fmt.Sprintf("subgraph-schema-%s", subgraphName), Namespace: "default"}
-			reconciledInstance := &corev1.ConfigMap{}
-
-			Eventually(func() error {
-				return k8sClient.Get(ctx, instanceLookupKey, reconciledInstance)
-			}, timeout, interval).Should(BeNil())
-
-			Expect(reconciledInstance.OwnerReferences[0].Name).Should(Equal(subgraphName))
-			Expect(reconciledInstance.Data).Should(HaveKey("schema.graphql"))
-			Expect(reconciledInstance.Data["schema.graphql"]).Should(Equal("type Query { hello: String }"))
 		})
 
 		It("cleans up", func() {

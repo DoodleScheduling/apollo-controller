@@ -60,7 +60,7 @@ var (
 	metricsAddr             string
 	healthAddr              string
 	concurrent              int
-	defaultRoverImage       string
+	defaultSuperGraphImage  string
 	defaultHTTPDImage       string
 	gracefulShutdownTimeout time.Duration
 	clientOptions           client.Options
@@ -80,7 +80,7 @@ func main() {
 		"The number of concurrent SwaggerHub reconciles.")
 	flag.DurationVar(&gracefulShutdownTimeout, "graceful-shutdown-timeout", 600*time.Second,
 		"The duration given to the reconciler to finish before forcibly stopping.")
-	flag.StringVar(&defaultRoverImage, "default-rover-image", "ghcr.io/doodlescheduling/rover:v0",
+	flag.StringVar(&defaultSuperGraphImage, "default-supergraph-image", "ghcr.io/doodlescheduling/supergraph:v0",
 		"The default rover cli image.")
 	flag.StringVar(&defaultHTTPDImage, "default-httpd-image", "busybox:1",
 		"The default image which provides an http server to serve the directory /output. By default httpd (busybox) is used.")
@@ -188,13 +188,13 @@ func main() {
 	}
 
 	supergraphschemaReconciler := &controllers.SuperGraphSchemaReconciler{
-		Client:            mgr.GetClient(),
-		Log:               ctrl.Log.WithName("controllers").WithName("SuperGraphSchema"),
-		Scheme:            mgr.GetScheme(),
-		Recorder:          mgr.GetEventRecorderFor("SuperGraphSchema"),
-		DefaultRoverImage: defaultRoverImage,
-		DefaultHTTPDImage: defaultHTTPDImage,
-		HTTPGetter:        http.DefaultClient,
+		Client:                 mgr.GetClient(),
+		Log:                    ctrl.Log.WithName("controllers").WithName("SuperGraphSchema"),
+		Scheme:                 mgr.GetScheme(),
+		Recorder:               mgr.GetEventRecorderFor("SuperGraphSchema"),
+		DefaultSuperGraphImage: defaultSuperGraphImage,
+		DefaultHTTPDImage:      defaultHTTPDImage,
+		HTTPGetter:             http.DefaultClient,
 	}
 
 	if err = supergraphschemaReconciler.SetupWithManager(mgr, controllers.SuperGraphSchemaReconcilerOptions{

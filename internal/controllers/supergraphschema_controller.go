@@ -21,6 +21,7 @@ import (
 	"cmp"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -59,12 +60,12 @@ import (
 // SuperGraphSchema reconciles a SuperGraphSchema object
 type SuperGraphSchemaReconciler struct {
 	client.Client
-	Log               logr.Logger
-	Scheme            *runtime.Scheme
-	Recorder          record.EventRecorder
-	DefaultRoverImage string
-	DefaultHTTPDImage string
-	HTTPGetter        httpGetter
+	Log                    logr.Logger
+	Scheme                 *runtime.Scheme
+	Recorder               record.EventRecorder
+	DefaultSuperGraphImage string
+	DefaultHTTPDImage      string
+	HTTPGetter             httpGetter
 }
 
 type httpGetter interface {
@@ -198,7 +199,7 @@ func (r *SuperGraphSchemaReconciler) Reconcile(ctx context.Context, req ctrl.Req
 }
 
 type superGraphConfig struct {
-	FederationVersion int `yaml:"federation_version"`
+	FederationVersion string `yaml:"federation_version"`
 	SubGraphs         map[string]subGraphConfig
 }
 
@@ -208,7 +209,7 @@ type subGraphConfig struct {
 }
 
 type subGraphSchema struct {
-	File string `yaml:"file"`
+	SDL string `yaml:"sdl"`
 }
 
 func (r *SuperGraphSchemaReconciler) reconcile(ctx context.Context, schema infrav1beta1.SuperGraphSchema, logger logr.Logger) (infrav1beta1.SuperGraphSchema, ctrl.Result, error) {
@@ -322,17 +323,21 @@ func (r *SuperGraphSchemaReconciler) subGraphCheckum(subgraphs []infrav1beta1.Su
 	return fmt.Sprintf("%x", checksumSha.Sum(nil))
 }
 
-func (r *SuperGraphSchemaReconciler) createSuperGraphConfig(subgraphs []infrav1beta1.SubGraph) superGraphConfig {
+func (r *SuperGraphSchemaReconciler) createSuperGraphConfig(schema infrav1beta1.SuperGraphSchema, subgraphs []infrav1beta1.SubGraph) superGraphConfig {
 	config := superGraphConfig{
-		FederationVersion: 2,
+		FederationVersion: schema.Spec.FederationVersion,
 		SubGraphs:         make(map[string]subGraphConfig, len(subgraphs)),
 	}
 
 	for _, subgraph := range subgraphs {
+		if subgraph.Spec.Schema == nil {
+			continue
+		}
+
 		config.SubGraphs[subgraph.Name] = subGraphConfig{
 			RoutingURL: subgraph.Spec.Endpoint,
 			Schema: subGraphSchema{
-				File: fmt.Sprintf("/schemas/%s.%s.graphql", subgraph.Namespace, subgraph.Name),
+				SDL: subgraph.Spec.Schema.SDL,
 			},
 		}
 	}
@@ -344,57 +349,81 @@ func (r *SuperGraphSchemaReconciler) handleReconcilerState(ctx context.Context, 
 	logger.Info("handlerState", "condf", schema.Status.Conditions)
 	var containerStatus *corev1.ContainerStatus
 	for _, container := range pod.Status.ContainerStatuses {
-		if container.Name == "rover" {
+		if container.Name == "supergraph-composer" {
 			containerStatus = &container
 			break
 		}
 	}
 
-	switch {
-	case containerStatus == nil:
+	if containerStatus == nil || containerStatus.State.Terminated == nil {
 		return schema, ctrl.Result{}, nil
-	case containerStatus.State.Terminated != nil && containerStatus.State.Terminated.ExitCode == 0:
-		logger.Info("reconciler pod succeeded", "pod-name", schema.Status.Reconciler)
+	}
 
-		schema, res, err := r.updateSchemaStatus(ctx, schema, pod, logger)
+	logger.Info("reconciler pod terminated", "pod-name", schema.Status.Reconciler, "exit-code", containerStatus.State.Terminated.ExitCode)
+	output, err := r.parseSuperGraphOutput(ctx, schema, pod, logger)
+	if err != nil {
+		return schema, ctrl.Result{}, err
+	}
 
+	if containerStatus.State.Terminated.ExitCode == 0 {
+		schema, result, err := r.createSuperGraphResult(ctx, schema, output)
 		if err != nil {
-			// Don't delete the pod on transient errors (e.g., composition file not found)
-			// The pod will be cleaned up on the next successful reconcile or when it becomes stale
-			// This prevents immediate reconcile loops that bypass backoff logic
-			logger.V(1).Info("error updating schema status, keeping pod for retry", "error", err)
-			return schema, res, err
+			return schema, result, err
 		}
 
-		// Only cleanup pod on successful status update
 		if err := r.Delete(ctx, pod); err != nil && !apierrors.IsNotFound(err) {
-			return schema, res, fmt.Errorf("could not delete reconciler pod: %w", err)
+			return schema, result, fmt.Errorf("could not delete reconciler pod: %w", err)
 		}
 
+		schema.Status.ComposeErrors = nil
 		schema.Status.ObservedSHA256Checksum = checksum
 		schema = infrav1beta1.SuperGraphSchemaReady(schema, metav1.ConditionTrue, "ReconciliationSucceeded", fmt.Sprintf("reconciler %s terminated with code 0", schema.Status.Reconciler.Name))
 		msg := "schema successfully composed"
 		r.Recorder.Event(&schema, "Normal", "info", msg)
-
-		logger.Info("exit reconciler", "condf", schema.Status.Conditions)
-
-		return schema, res, err
-	case containerStatus.State.Terminated != nil:
-		err := fmt.Errorf("reconciler terminated with code %d", containerStatus.State.Terminated.ExitCode)
-		schema = infrav1beta1.SuperGraphSchemaReady(schema, metav1.ConditionFalse, "ReconciliationFailed", err.Error())
-		return schema, ctrl.Result{}, err
+		return schema, ctrl.Result{}, nil
 	}
 
+	schema.Status.ComposeErrors = nil
+	for _, err := range output.Err.BuildErrors {
+		schema.Status.ComposeErrors = append(schema.Status.ComposeErrors, infrav1beta1.ComposeError{
+			Message: err.Message,
+			Code:    err.Code,
+			Type:    err.Type,
+		})
+	}
+
+	err = fmt.Errorf("reconciler terminated with code %d", containerStatus.State.Terminated.ExitCode)
+	schema = infrav1beta1.SuperGraphSchemaReady(schema, metav1.ConditionFalse, "ReconciliationFailed", err.Error())
 	return schema, ctrl.Result{}, nil
 }
 
-func (r *SuperGraphSchemaReconciler) updateSchemaStatus(ctx context.Context, schema infrav1beta1.SuperGraphSchema, pod *corev1.Pod, logger logr.Logger) (infrav1beta1.SuperGraphSchema, ctrl.Result, error) {
+type supergraphOutput struct {
+	OK  supergraphOutputOk  `json:"ok"`
+	Err supergraphOutputErr `json:"err"`
+}
+
+type supergraphOutputOk struct {
+	SDL string `json:"supergraphSdl"`
+}
+
+type supergraphOutputErr struct {
+	BuildErrors []supergraphBuildError `json:"build_errors"`
+}
+
+type supergraphBuildError struct {
+	Message string `json:"message"`
+	Code    string `json:"code"`
+	Type    string `json:"type"`
+}
+
+func (r *SuperGraphSchemaReconciler) parseSuperGraphOutput(ctx context.Context, schema infrav1beta1.SuperGraphSchema, pod *corev1.Pod, logger logr.Logger) (supergraphOutput, error) {
 	scrapeURL := fmt.Sprintf("http://%s:29000/schema.graphql", pod.Status.PodIP)
 	logger.Info("fetch composed config from url", "url", scrapeURL)
+	var output supergraphOutput
 
 	resp, err := http.Get(scrapeURL)
 	if err != nil {
-		return schema, ctrl.Result{}, fmt.Errorf("request failed: %w", err)
+		return output, fmt.Errorf("request failed: %w", err)
 	}
 
 	defer func() {
@@ -403,14 +432,26 @@ func (r *SuperGraphSchemaReconciler) updateSchemaStatus(ctx context.Context, sch
 
 	logger.Info("scrape result", "url", scrapeURL, "http-code", resp.StatusCode, "content-length", resp.ContentLength)
 	if resp.StatusCode != http.StatusOK {
-		return schema, ctrl.Result{}, fmt.Errorf("bad status: %s", resp.Status)
+		return output, fmt.Errorf("bad status: %s", resp.Status)
 	}
 
 	var b []byte
 	buf := bytes.NewBuffer(b)
 	_, err = io.Copy(buf, resp.Body)
 	if err != nil {
-		return schema, ctrl.Result{}, fmt.Errorf("write failed: %w", err)
+		return output, fmt.Errorf("write failed: %w", err)
+	}
+
+	if err := json.Unmarshal(buf.Bytes(), &output); err != nil {
+		return output, fmt.Errorf("supergraph composer failed: %w", err)
+	}
+
+	return output, nil
+}
+
+func (r *SuperGraphSchemaReconciler) createSuperGraphResult(ctx context.Context, schema infrav1beta1.SuperGraphSchema, output supergraphOutput) (infrav1beta1.SuperGraphSchema, ctrl.Result, error) {
+	if output.OK.SDL == "" {
+		return schema, ctrl.Result{}, fmt.Errorf("supergraph composer failed, no schema in supergraph compose output")
 	}
 
 	controllerOwner := true
@@ -429,12 +470,12 @@ func (r *SuperGraphSchemaReconciler) updateSchemaStatus(ctx context.Context, sch
 			},
 		},
 		Data: map[string]string{
-			"schema.graphql": buf.String(),
+			"schema.graphql": output.OK.SDL,
 		},
 	}
 
 	var existingSpec corev1.ConfigMap
-	err = r.Get(ctx, client.ObjectKey{
+	err := r.Get(ctx, client.ObjectKey{
 		Namespace: cm.Namespace,
 		Name:      cm.Name,
 	}, &existingSpec)
@@ -462,7 +503,7 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 	schema = infrav1beta1.SuperGraphSchemaReady(schema, metav1.ConditionUnknown, "Progressing", "Reconciliation in progress")
 	schema = infrav1beta1.SuperGraphSchemaReconciling(schema, metav1.ConditionTrue, "Progressing", "")
 
-	supergraphConfig := r.createSuperGraphConfig(subgraphs)
+	supergraphConfig := r.createSuperGraphConfig(schema, subgraphs)
 	composeConfig, err := yaml.Marshal(supergraphConfig)
 	if err != nil {
 		return schema, ctrl.Result{}, fmt.Errorf("failed to marshal config: %w", err)
@@ -477,7 +518,7 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 		schema.Spec.ReconcilerTemplate.Spec.DeepCopyInto(&template.Spec)
 	}
 
-	template.Name = fmt.Sprintf("rover-%s", rand.String(8))
+	template.Name = fmt.Sprintf("supergraph-composer-%s", rand.String(8))
 	template.Namespace = schema.Namespace
 	template.OwnerReferences = []metav1.OwnerReference{
 		{
@@ -496,8 +537,8 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 		template.Labels = make(map[string]string)
 	}
 
-	template.Labels["app.kubernetes.io/instance"] = "rover"
-	template.Labels["app.kubernetes.io/name"] = "rover"
+	template.Labels["app.kubernetes.io/instance"] = "supergraph-composer"
+	template.Labels["app.kubernetes.io/name"] = "supergraph-composer"
 	template.Labels["apollo-controller/schema"] = schema.Name
 
 	if template.Annotations == nil {
@@ -509,22 +550,18 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 
 	containers := []corev1.Container{
 		{
-			Name: "rover",
+			Name: "supergraph-composer",
 			Command: []string{
 				"/bin/sh",
 				"-c",
-				"rover supergraph compose --config /supergraph/supergraph.yaml --skip-update-check --skip-update > /output/schema.graphql",
+				"supergraph compose /supergraph/supergraph.yaml > /output/schema.graphql",
 			},
-			Image: r.DefaultRoverImage,
+			Image: r.DefaultSuperGraphImage,
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      "supergraph-config",
 					MountPath: "/supergraph",
 					ReadOnly:  true,
-				},
-				{
-					Name:      "rover-config",
-					MountPath: "/.config",
 				},
 				{
 					Name:      "output",
@@ -558,7 +595,7 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 		return schema, ctrl.Result{}, err
 	}
 
-	template.Spec.RestartPolicy = corev1.RestartPolicyOnFailure
+	template.Spec.RestartPolicy = corev1.RestartPolicyAlways
 	template.Spec.Containers = containers
 	template.Spec.Volumes = append(template.Spec.Volumes,
 		corev1.Volume{
@@ -572,38 +609,12 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 			},
 		},
 		corev1.Volume{
-			Name: "rover-config",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		},
-		corev1.Volume{
 			Name: "output",
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		},
 	)
-
-	for _, subgraph := range subgraphs {
-		template.Spec.Volumes = append(template.Spec.Volumes, corev1.Volume{
-			Name: fmt.Sprintf("subgraph-%s-%s", subgraph.Namespace, subgraph.Name),
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: subgraph.Status.ConfigMap.Name,
-					},
-				},
-			},
-		})
-
-		template.Spec.Containers[0].VolumeMounts = append(template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
-			Name:      fmt.Sprintf("subgraph-%s-%s", subgraph.Namespace, subgraph.Name),
-			MountPath: fmt.Sprintf("/schemas/%s.%s.graphql", subgraph.Namespace, subgraph.Name),
-			SubPath:   "schema.graphql",
-			ReadOnly:  true,
-		})
-	}
 
 	// If the status update fails the creation of the reconciler pod is postponed to the next reconciliation run
 	schema.Status.Reconciler = corev1.LocalObjectReference{
@@ -623,8 +634,8 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 		ObjectMeta: metav1.ObjectMeta{
 			Name: template.Name,
 			Labels: map[string]string{
-				"app.kubernetes.io/instance": "rover",
-				"app.kubernetes.io/name":     "rover",
+				"app.kubernetes.io/instance": "supergraph-composer",
+				"app.kubernetes.io/name":     "supergraph-composer",
 				"apollo-controller/schema":   schema.Name,
 			},
 			Namespace: schema.Namespace,
@@ -704,13 +715,6 @@ func (r *SuperGraphSchemaReconciler) extendSuperWithSubGraphs(ctx context.Contex
 	var ready []infrav1beta1.SubGraph
 
 	for _, subgraph := range subgraphs.Items {
-		cm := &corev1.ConfigMap{}
-		err = r.Get(ctx, client.ObjectKey{Name: subgraph.Status.ConfigMap.Name, Namespace: subgraph.Namespace}, cm)
-		if err != nil {
-			logger.Info("subgraph configmap not found, ignoring", "configmap", subgraph.Status.ConfigMap.Name, "namespace", subgraph.Namespace, "error", err)
-			continue
-		}
-
 		ready = append(ready, subgraph)
 
 		ref := infrav1beta1.ResourceReference{

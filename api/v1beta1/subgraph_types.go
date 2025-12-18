@@ -1,7 +1,6 @@
 package v1beta1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -40,9 +39,6 @@ type Schema struct {
 }
 
 type SubGraphStatus struct {
-	// ConfigMap reference
-	ConfigMap corev1.LocalObjectReference `json:"configMap,omitempty"`
-
 	SHA256Checksum string `json:"sha256Checksum,omitempty"`
 
 	// ObservedGeneration is the last generation reconciled by the controller

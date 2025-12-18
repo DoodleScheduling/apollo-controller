@@ -107,27 +107,7 @@ func (r *SubGraphReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 }
 
 func (r *SubGraphReconciler) reconcile(ctx context.Context, subgraph infrav1beta1.SubGraph) (infrav1beta1.SubGraph, ctrl.Result, error) {
-	controllerOwner := true
-	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("subgraph-schema-%s", subgraph.Name),
-			Namespace: subgraph.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					Name:       subgraph.Name,
-					APIVersion: subgraph.APIVersion,
-					Kind:       subgraph.Kind,
-					UID:        subgraph.UID,
-					Controller: &controllerOwner,
-				},
-			},
-		},
-	}
-
-	if subgraph.Spec.Schema != nil {
-		cm.Data = make(map[string]string)
-		cm.Data["schema.graphql"] = subgraph.Spec.Schema.SDL
-	} else {
+	if subgraph.Spec.Schema == nil {
 		return subgraph, ctrl.Result{}, fmt.Errorf("no schema defined")
 	}
 
@@ -136,31 +116,7 @@ func (r *SubGraphReconciler) reconcile(ctx context.Context, subgraph infrav1beta
 	checksum := fmt.Sprintf("%x", checksumSha.Sum(nil))
 	subgraph.Status.SHA256Checksum = checksum
 
-	var existingSpec corev1.ConfigMap
-	err := r.Get(ctx, client.ObjectKey{
-		Namespace: cm.Namespace,
-		Name:      cm.Name,
-	}, &existingSpec)
-
-	if err != nil && !apierrors.IsNotFound(err) {
-		return subgraph, ctrl.Result{}, err
-	}
-
-	if apierrors.IsNotFound(err) {
-		if err := r.Create(ctx, cm); err != nil {
-			return subgraph, ctrl.Result{}, err
-		}
-	} else {
-		if err := r.Update(ctx, cm); err != nil {
-			return subgraph, ctrl.Result{}, err
-		}
-	}
-
-	subgraph.Status.ConfigMap = corev1.LocalObjectReference{
-		Name: cm.Name,
-	}
-
-	subgraph = infrav1beta1.SubGraphReady(subgraph, metav1.ConditionTrue, "ReconciliationSuccessful", fmt.Sprintf("configmap/%s created", cm.Name))
+	subgraph = infrav1beta1.SubGraphReady(subgraph, metav1.ConditionTrue, "ReconciliationSuccessful", "schema available")
 	return subgraph, ctrl.Result{}, nil
 }
 
