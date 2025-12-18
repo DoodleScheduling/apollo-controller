@@ -9,8 +9,8 @@ rules:
   resources:
   - configmaps
   - pods
-  - services
   verbs:
+  - create
   - delete
   - get
   - list
@@ -31,6 +31,17 @@ rules:
   verbs:
   - get
   - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - delete
+  - get
+  - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - apollo.infra.doodle.com

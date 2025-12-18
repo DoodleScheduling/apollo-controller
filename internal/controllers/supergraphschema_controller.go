@@ -53,8 +53,8 @@ import (
 // +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=supergraphschemas/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=subgraphs,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;watch;list
-// +kubebuilder:rbac:groups="",resources=pods,verbs=get;update;patch;delete;watch;list
-// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;update;patch;delete;watch;list
+// +kubebuilder:rbac:groups="",resources=pods,verbs=create;get;update;patch;delete;watch;list
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=create;get;update;patch;delete;watch;list
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // SuperGraphSchema reconciles a SuperGraphSchema object
