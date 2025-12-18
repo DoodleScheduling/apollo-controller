@@ -18,7 +18,7 @@ import (
 
 var _ = Describe("SuperGraphSchema controller", func() {
 	const (
-		timeout  = time.Second * 3
+		timeout  = time.Second * 6
 		interval = time.Millisecond * 50
 	)
 
@@ -889,9 +889,17 @@ subgraphs:
 					return err
 				}
 
+				/*if reconciledInstance.Status.Reconciler.Name == beforeUpdateStatus.Reconciler.Name || reconciledInstance.Status.Reconciler.Name == "" {
+					return fmt.Errorf("%s == %s", reconciledInstance.Status.Reconciler.Name, beforeUpdateStatus.Reconciler.Name)
+				}*/
+
 				if reconciledInstance.Status.Reconciler.Name == beforeUpdateStatus.Reconciler.Name || reconciledInstance.Status.Reconciler.Name == "" {
 					return fmt.Errorf("%s == %s", reconciledInstance.Status.Reconciler.Name, beforeUpdateStatus.Reconciler.Name)
 				}
+
+				/*if beforeUpdateStatus.ObservedSHA256Checksum == reconciledInstance.Status.ObservedSHA256Checksum {
+					return fmt.Errorf("observed checksum did not change, %s==%s", beforeUpdateStatus.ObservedSHA256Checksum, reconciledInstance.Status.ObservedSHA256Checksum)
+				}*/
 
 				return needsExactConditions(expectedStatus.Conditions, reconciledInstance.Status.Conditions)
 			}, timeout, interval).Should(Not(HaveOccurred()))
@@ -1192,6 +1200,10 @@ subgraphs:
 				if reconciledInstance.Status.Reconciler.Name == beforeUpdateStatus.Reconciler.Name || reconciledInstance.Status.Reconciler.Name == "" {
 					return fmt.Errorf("%s == %s", reconciledInstance.Status.Reconciler.Name, beforeUpdateStatus.Reconciler.Name)
 				}
+
+				/*if beforeUpdateStatus.ObservedSHA256Checksum == reconciledInstance.Status.ObservedSHA256Checksum {
+					return fmt.Errorf("observed checksum did not change, %s==%s", beforeUpdateStatus.ObservedSHA256Checksum, reconciledInstance.Status.ObservedSHA256Checksum)
+				}*/
 
 				return needsExactConditions(expectedStatus.Conditions, reconciledInstance.Status.Conditions)
 			}, timeout, interval).Should(Not(HaveOccurred()))

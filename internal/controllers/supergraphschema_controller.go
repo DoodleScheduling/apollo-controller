@@ -175,7 +175,6 @@ func (r *SuperGraphSchemaReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if schema.Spec.Suspend {
 		return ctrl.Result{}, nil
 	}
-	logger.Info("BEFORE reconcile()", "condf", schema.Status.Conditions, "version", schema.ResourceVersion)
 
 	schema, result, err := r.reconcile(ctx, schema, logger)
 	schema.Status.ObservedGeneration = schema.GetGeneration()
@@ -194,7 +193,7 @@ func (r *SuperGraphSchemaReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		logger.Error(err, "unable to update status after reconciliation")
 		return ctrl.Result{}, err
 	}
-	logger.Info("last reconcile()", "condf", schema.Status.Conditions, "version", schema.ResourceVersion)
+	logger.Info("last reconcile()", "condf", schema.Status.Conditions)
 
 	return result, err
 }
@@ -246,18 +245,17 @@ func (r *SuperGraphSchemaReconciler) reconcile(ctx context.Context, schema infra
 	if schema.Status.Reconciler.Name != "" {
 		configmapErr = r.Get(ctx, client.ObjectKey{Name: schema.Status.Reconciler.Name, Namespace: schema.Namespace}, configmap)
 		podErr = r.Get(ctx, client.ObjectKey{Name: schema.Status.Reconciler.Name, Namespace: schema.Namespace}, pod)
-		specVersion, specVersionOk := pod.Annotations["apollo-controller/spec-version"]
-		if !needUpdate && podErr == nil && specVersionOk {
+		specVersion, ok := pod.Annotations["apollo-controller/spec-version"]
+		if !needUpdate && podErr == nil && ok {
 			needUpdate = specVersion != fmt.Sprintf("%d", schema.Generation)
 		}
 
-		specChecksum, specChecksumOk := pod.Annotations["apollo-controller/subgraphs-checksum"]
-		if !needUpdate && podErr == nil && specChecksumOk {
+		specChecksum, ok := pod.Annotations["apollo-controller/subgraphs-checksum"]
+		if !needUpdate && podErr == nil && ok {
 			needUpdate = specChecksum != checksum
 		}
 
-		// If either annotation is missing, we need to update
-		if !specVersionOk || !specChecksumOk {
+		if !ok {
 			needUpdate = true
 		}
 
