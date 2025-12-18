@@ -178,7 +178,6 @@ func (r *SuperGraphSchemaReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	schema, result, err := r.reconcile(ctx, schema, logger)
 	schema.Status.ObservedGeneration = schema.GetGeneration()
-	logger.Info("afer reconcile()", "condf", schema.Status.Conditions)
 
 	if err != nil {
 		logger.Error(err, "reconcile error occurred")
@@ -187,13 +186,10 @@ func (r *SuperGraphSchemaReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// Update status after reconciliation.
-	logger.Info("patchStatus reconcile()", "condf", schema.Status.Conditions)
-
 	if err := r.patchStatus(ctx, &schema); err != nil {
 		logger.Error(err, "unable to update status after reconciliation")
 		return ctrl.Result{}, err
 	}
-	logger.Info("last reconcile()", "condf", schema.Status.Conditions)
 
 	return result, err
 }
@@ -218,8 +214,6 @@ func (r *SuperGraphSchemaReconciler) reconcile(ctx context.Context, schema infra
 	if err != nil {
 		return schema, ctrl.Result{}, err
 	}
-
-	logger.Info("start reconcile", "condf", schema.Status.Conditions)
 
 	checksum := r.subGraphCheckum(subgraphs)
 	logger.V(1).Info("schema checksum", "checksum", checksum)
@@ -303,8 +297,6 @@ func (r *SuperGraphSchemaReconciler) reconcile(ctx context.Context, schema infra
 		}
 	}
 
-	logger.Info("before handle", "condf", schema.Status.Conditions)
-
 	// handle reconciler pod state
 	if podErr == nil && pod.Name != "" {
 		return r.handleReconcilerState(ctx, schema, pod, checksum, logger)
@@ -346,7 +338,6 @@ func (r *SuperGraphSchemaReconciler) createSuperGraphConfig(schema infrav1beta1.
 }
 
 func (r *SuperGraphSchemaReconciler) handleReconcilerState(ctx context.Context, schema infrav1beta1.SuperGraphSchema, pod *corev1.Pod, checksum string, logger logr.Logger) (infrav1beta1.SuperGraphSchema, ctrl.Result, error) {
-	logger.Info("handlerState", "condf", schema.Status.Conditions)
 	var containerStatus *corev1.ContainerStatus
 	for _, container := range pod.Status.ContainerStatuses {
 		if container.Name == "supergraph-composer" {

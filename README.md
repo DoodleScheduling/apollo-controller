@@ -105,6 +105,26 @@ spec:
   routerConfig: {}
 ```
 
+## Resource Dependencies
+```mermaid
+flowchart LR
+    SuperGraph["SuperGraph"]
+    SuperGraphSchema["SuperGraphSchema"]
+    Subgraph1["SubGraph A"]
+    Subgraph2["SubGraph B"]
+    Subgraph3["SubGraph C"]
+    Deployment["Apollo Router"]
+    SchemaReconciler["SuperGraph Composer Pod"]
+
+    SuperGraphSchema --> SchemaReconciler
+    SuperGraphSchema --> SuperGraph
+    Subgraph1 --> SuperGraphSchema
+    Subgraph2 --> SuperGraphSchema
+    Subgraph3 --> SuperGraphSchema
+
+    SuperGraph --> Deployment
+```
+
 ## Router deployment template
 It is possible to define a custom apollo deployment template which the controller will use to spin up the managed deployment.
 In the following example the deployment receives an additional container called mysidecar. Also resources
