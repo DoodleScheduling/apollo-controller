@@ -245,17 +245,18 @@ func (r *SuperGraphSchemaReconciler) reconcile(ctx context.Context, schema infra
 	if schema.Status.Reconciler.Name != "" {
 		configmapErr = r.Get(ctx, client.ObjectKey{Name: schema.Status.Reconciler.Name, Namespace: schema.Namespace}, configmap)
 		podErr = r.Get(ctx, client.ObjectKey{Name: schema.Status.Reconciler.Name, Namespace: schema.Namespace}, pod)
-		specVersion, ok := pod.Annotations["apollo-controller/spec-version"]
-		if !needUpdate && podErr == nil && ok {
+		specVersion, specVersionOk := pod.Annotations["apollo-controller/spec-version"]
+		if !needUpdate && podErr == nil && specVersionOk {
 			needUpdate = specVersion != fmt.Sprintf("%d", schema.Generation)
 		}
 
-		specChecksum, ok := pod.Annotations["apollo-controller/subgraphs-checksum"]
-		if !needUpdate && podErr == nil && ok {
+		specChecksum, specChecksumOk := pod.Annotations["apollo-controller/subgraphs-checksum"]
+		if !needUpdate && podErr == nil && specChecksumOk {
 			needUpdate = specChecksum != checksum
 		}
 
-		if !ok {
+		// If either annotation is missing, we need to update
+		if !specVersionOk || !specChecksumOk {
 			needUpdate = true
 		}
 

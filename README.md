@@ -8,7 +8,7 @@
 [![license](https://img.shields.io/github/license/DoodleScheduling/apollo-controller.svg)](https://github.com/DoodleScheduling/apollo-controller/blob/master/LICENSE)
 
 This controller manages the [Apollo GraphQL](https://apollo.io/tools/apollo/) router.
-The controller can lookup `SubGraph` resources and compose a `SuperGraphSchema` using `rover`.
+The controller can lookup `SubGraph` resources and compose a `SuperGraphSchema` using the official supergraph composer plugin.
 A router can be deployed using a `SuperGraph` which uses a composed `SuperGraphSchema`.
 
 ### Beta API notice
@@ -83,11 +83,6 @@ Similar to the `subGraphSelector` it is possible to match sub graphs cross names
 By default a `SuperGraphSchema` only looks up sub graphs from the same namespace but with a namespace selector this behaviour can be changed.
 Using `namespaceSelector.matchLabels: {}` will lookup sub graphs across all namespaces.
 
-
-**IMPORTANT**: The apollo-controller uses [doodlescheduling/rover](https://github.com/DoodleScheduling/rover) as image for the apollo rover cli since the is no official one.
-rover requires you as a user to accept the license, by design we do not package this acknowledgment. You will need agree to the [license](https://www.apollographql.com/trust/licensing) via the reconciler template as follow
-or package your own rover image.
-
 ```yaml
 apiVersion: apollo.infra.doodle.com/v1beta1
 kind: SuperGraphSchema
@@ -96,15 +91,6 @@ metadata:
 spec:
   subGraphSelector:
     matchLabels: {}
-  reconcilerTemplate:
-    metadata:
-      namespace: controller-namespace
-    spec:
-      containers:
-      - name: rover
-        env:
-        - name: APOLLO_ELV2_LICENSE
-          value: accept
 ```
 
 Deploy a router:
@@ -151,9 +137,9 @@ spec:
             image: mysidecar
 ```
 
-## SuperGraphSchema rover reconciler template
+## SuperGraphSchema reconciler template
 
-The super graph schema composer emits a custom rover reconciler pod which composes the
+The super graph schema composer emits a custom supergraph reconciler pod which composes the
 super graph config. The pod also comes with an httpd sidecar. The reconciler pod can be customized:
 
 ```yaml
@@ -167,11 +153,8 @@ spec:
   reconcilerTemplate:
     spec:
       containers:
-      - env:
-        - name: APOLLO_ELV2_LICENSE
-          value: accept
-        image: ghcr.io/doodlescheduling/rover:v0.37.0@sha256:1bc6ab95060939d55cd899d25ae8f9686bcef2bf598bac2ecf655921d5232f00
-        name: rover
+      - image: ghcr.io/doodlescheduling/supergraph:v2.12.1@sha256:ec33ca19c8180122393b809d409dcbabaa30f8e6f6bb67655149859eb2afcfcd
+        name: supergraph-composer
         resources:
           limits:
             memory: 256Mi
