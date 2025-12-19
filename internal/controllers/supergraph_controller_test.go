@@ -86,7 +86,7 @@ var _ = Describe("SuperGraph controller", func() {
 						Type:    v1beta1.ConditionReady,
 						Status:  metav1.ConditionFalse,
 						Reason:  "ReconciliationFailed",
-						Message: fmt.Sprintf("schema %s not found", ""),
+						Message: "schema not found",
 					},
 				},
 			}

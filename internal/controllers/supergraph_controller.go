@@ -192,11 +192,13 @@ func (r *SuperGraphReconciler) reconcile(ctx context.Context, supergraph infrav1
 	}
 
 	if apierrors.IsNotFound(err) {
-		return supergraph, ctrl.Result{}, fmt.Errorf("schema %s not found", supergraph.Spec.Schema.Name)
+		supergraph = infrav1beta1.SuperGraphReady(supergraph, metav1.ConditionFalse, "ReconciliationFailed", "schema not found")
+		return supergraph, ctrl.Result{}, nil
 	}
 
 	if graphschema.Status.ConfigMap.Name == "" {
-		return supergraph, ctrl.Result{}, fmt.Errorf("supergraphschema is not ready")
+		supergraph = infrav1beta1.SuperGraphReady(supergraph, metav1.ConditionFalse, "ReconciliationFailed", "graphql schema is not ready")
+		return supergraph, ctrl.Result{}, nil
 	}
 
 	var schema corev1.ConfigMap
@@ -226,7 +228,7 @@ func (r *SuperGraphReconciler) reconcile(ctx context.Context, supergraph infrav1
 	)
 
 	controllerOwner := true
-	template := &appsv1.Deployment{
+	deploymentTemplate := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("apollo-router-%s", supergraph.Name),
 			Namespace: supergraph.Namespace,
@@ -254,26 +256,26 @@ func (r *SuperGraphReconciler) reconcile(ctx context.Context, supergraph infrav1
 	}
 
 	if supergraph.Spec.DeploymentTemplate != nil {
-		template.Labels = supergraph.Spec.DeploymentTemplate.Labels
-		template.Annotations = supergraph.Spec.DeploymentTemplate.Annotations
-		supergraph.Spec.DeploymentTemplate.Spec.Template.DeepCopyInto(&template.Spec.Template)
-		template.Spec.MinReadySeconds = supergraph.Spec.DeploymentTemplate.Spec.MinReadySeconds
-		template.Spec.Paused = supergraph.Spec.DeploymentTemplate.Spec.Paused
-		template.Spec.ProgressDeadlineSeconds = supergraph.Spec.DeploymentTemplate.Spec.ProgressDeadlineSeconds
-		template.Spec.Replicas = supergraph.Spec.DeploymentTemplate.Spec.Replicas
-		template.Spec.RevisionHistoryLimit = supergraph.Spec.DeploymentTemplate.Spec.RevisionHistoryLimit
-		template.Spec.Strategy = supergraph.Spec.DeploymentTemplate.Spec.Strategy
+		deploymentTemplate.Labels = supergraph.Spec.DeploymentTemplate.Labels
+		deploymentTemplate.Annotations = supergraph.Spec.DeploymentTemplate.Annotations
+		supergraph.Spec.DeploymentTemplate.Spec.Template.DeepCopyInto(&deploymentTemplate.Spec.Template)
+		deploymentTemplate.Spec.MinReadySeconds = supergraph.Spec.DeploymentTemplate.Spec.MinReadySeconds
+		deploymentTemplate.Spec.Paused = supergraph.Spec.DeploymentTemplate.Spec.Paused
+		deploymentTemplate.Spec.ProgressDeadlineSeconds = supergraph.Spec.DeploymentTemplate.Spec.ProgressDeadlineSeconds
+		deploymentTemplate.Spec.Replicas = supergraph.Spec.DeploymentTemplate.Spec.Replicas
+		deploymentTemplate.Spec.RevisionHistoryLimit = supergraph.Spec.DeploymentTemplate.Spec.RevisionHistoryLimit
+		deploymentTemplate.Spec.Strategy = supergraph.Spec.DeploymentTemplate.Spec.Strategy
 	}
 
-	if template.Labels == nil {
-		template.Labels = make(map[string]string)
+	if deploymentTemplate.Labels == nil {
+		deploymentTemplate.Labels = make(map[string]string)
 	}
 
-	if template.Spec.Template.Labels == nil {
-		template.Spec.Template.Labels = make(map[string]string)
+	if deploymentTemplate.Spec.Template.Labels == nil {
+		deploymentTemplate.Spec.Template.Labels = make(map[string]string)
 	}
 
-	template.Spec.Selector = &metav1.LabelSelector{
+	deploymentTemplate.Spec.Selector = &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"app.kubernetes.io/instance":   "apollo-router",
 			"app.kubernetes.io/name":       "apollo-router",
@@ -281,22 +283,22 @@ func (r *SuperGraphReconciler) reconcile(ctx context.Context, supergraph infrav1
 		},
 	}
 
-	if template.Spec.Replicas == nil {
-		template.Spec.Replicas = &replicas
+	if deploymentTemplate.Spec.Replicas == nil {
+		deploymentTemplate.Spec.Replicas = &replicas
 	}
 
-	template.Spec.Template.Labels["app.kubernetes.io/instance"] = "apollo-router"
-	template.Spec.Template.Labels["app.kubernetes.io/name"] = "apollo-router"
-	template.Spec.Template.Labels["apollo-controller/supergraph"] = supergraph.Name
-	template.Labels["app.kubernetes.io/instance"] = "apollo-router"
-	template.Labels["app.kubernetes.io/name"] = "apollo-router"
-	template.Labels["apollo-controller/supergraph"] = supergraph.Name
+	deploymentTemplate.Spec.Template.Labels["app.kubernetes.io/instance"] = "apollo-router"
+	deploymentTemplate.Spec.Template.Labels["app.kubernetes.io/name"] = "apollo-router"
+	deploymentTemplate.Spec.Template.Labels["apollo-controller/supergraph"] = supergraph.Name
+	deploymentTemplate.Labels["app.kubernetes.io/instance"] = "apollo-router"
+	deploymentTemplate.Labels["app.kubernetes.io/name"] = "apollo-router"
+	deploymentTemplate.Labels["apollo-controller/supergraph"] = supergraph.Name
 
-	if template.Annotations == nil {
-		template.Annotations = make(map[string]string)
+	if deploymentTemplate.Annotations == nil {
+		deploymentTemplate.Annotations = make(map[string]string)
 	}
 
-	template.Spec.Template.Spec.Volumes = append(template.Spec.Template.Spec.Volumes, corev1.Volume{
+	deploymentTemplate.Spec.Template.Spec.Volumes = append(deploymentTemplate.Spec.Template.Spec.Volumes, corev1.Volume{
 		Name: "schema",
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -367,13 +369,13 @@ func (r *SuperGraphReconciler) reconcile(ctx context.Context, supergraph infrav1
 		},
 	}
 
-	containers, err = merge.MergePatchContainers(containers, template.Spec.Template.Spec.Containers)
+	containers, err = merge.MergePatchContainers(containers, deploymentTemplate.Spec.Template.Spec.Containers)
 	if err != nil {
 		return supergraph, ctrl.Result{}, err
 	}
 
-	template.Spec.Template.Spec.Containers = containers
-	r.Log.Info("create apollo-router deployment", "deployment-name", template.Name)
+	deploymentTemplate.Spec.Template.Spec.Containers = containers
+	r.Log.Info("create apollo-router deployment", "deployment-name", deploymentTemplate.Name)
 
 	svcTemplate := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -405,55 +407,15 @@ func (r *SuperGraphReconciler) reconcile(ctx context.Context, supergraph infrav1
 		},
 	}
 
-	var svc corev1.Service
-	err = r.Get(ctx, client.ObjectKey{
-		Namespace: svcTemplate.Namespace,
-		Name:      svcTemplate.Name,
-	}, &svc)
-
-	if err != nil && !apierrors.IsNotFound(err) {
+	if err := r.createOrUpdateWithOwnershipValidation(ctx, &supergraph, svcTemplate); err != nil {
 		return supergraph, ctrl.Result{}, err
 	}
 
-	if apierrors.IsNotFound(err) {
-		if err := r.Create(ctx, svcTemplate); err != nil {
-			return supergraph, ctrl.Result{}, err
-		}
-	} else {
-		if !isOwner(&supergraph, &svc) {
-			return supergraph, ctrl.Result{}, fmt.Errorf("can not take ownership of existing service: %s", svc.Name)
-		}
-
-		if err := r.Update(ctx, svcTemplate); err != nil {
-			return supergraph, ctrl.Result{}, err
-		}
-	}
-
-	var deployment appsv1.Deployment
-	err = r.Get(ctx, client.ObjectKey{
-		Namespace: template.Namespace,
-		Name:      template.Name,
-	}, &deployment)
-
-	if err != nil && !apierrors.IsNotFound(err) {
+	if err := r.createOrUpdateWithOwnershipValidation(ctx, &supergraph, deploymentTemplate); err != nil {
 		return supergraph, ctrl.Result{}, err
 	}
 
-	if apierrors.IsNotFound(err) {
-		if err := r.Create(ctx, template); err != nil {
-			return supergraph, ctrl.Result{}, err
-		}
-	} else {
-		if !isOwner(&supergraph, &deployment) {
-			return supergraph, ctrl.Result{}, fmt.Errorf("can not take ownership of existing deployment: %s", deployment.Name)
-		}
-
-		if err := r.Update(ctx, template); err != nil {
-			return supergraph, ctrl.Result{}, err
-		}
-	}
-
-	supergraph = infrav1beta1.SuperGraphReady(supergraph, metav1.ConditionTrue, "ReconciliationSuccessful", fmt.Sprintf("deployment/%s created", template.Name))
+	supergraph = infrav1beta1.SuperGraphReady(supergraph, metav1.ConditionTrue, "ReconciliationSuccessful", fmt.Sprintf("deployment/%s created", deploymentTemplate.Name))
 	return supergraph, ctrl.Result{}, nil
 }
 
@@ -475,19 +437,19 @@ func (r *SuperGraphReconciler) reconcileConfig(ctx context.Context, supergraph i
 		},
 	}
 
-	routerConfig := make(map[string]interface{})
+	routerConfig := make(map[string]any)
 	if len(supergraph.Spec.RouterConfig.Raw) > 0 {
 		if err := json.Unmarshal(supergraph.Spec.RouterConfig.Raw, &routerConfig); err != nil {
 			return supergraph, ctrl.Result{}, fmt.Errorf("failed to deserialize router config: %w", err)
 		}
 	}
 
-	if healthCheckVal, ok := routerConfig["health_check"].(map[string]interface{}); ok {
+	if healthCheckVal, ok := routerConfig["health_check"].(map[string]any); ok {
 		if _, exists := healthCheckVal["listen"]; !exists {
 			healthCheckVal["listen"] = "0.0.0.0:8088"
 		}
 	} else {
-		routerConfig["health_check"] = map[string]interface{}{
+		routerConfig["health_check"] = map[string]any{
 			"listen": "0.0.0.0:8088",
 		}
 	}
@@ -497,27 +459,11 @@ func (r *SuperGraphReconciler) reconcileConfig(ctx context.Context, supergraph i
 		return supergraph, ctrl.Result{}, fmt.Errorf("failed to serialize router config to YAML: %w", err)
 	}
 
-	cm.BinaryData = make(map[string][]byte)
-	cm.BinaryData["router.yaml"] = routerConfigYAML
+	cm.Data = make(map[string]string)
+	cm.Data["router.yaml"] = string(routerConfigYAML)
 
-	var existingSpec corev1.ConfigMap
-	err = r.Get(ctx, client.ObjectKey{
-		Namespace: cm.Namespace,
-		Name:      cm.Name,
-	}, &existingSpec)
-
-	if err != nil && !apierrors.IsNotFound(err) {
+	if err := r.createOrUpdateWithOwnershipValidation(ctx, &supergraph, cm); err != nil {
 		return supergraph, ctrl.Result{}, err
-	}
-
-	if apierrors.IsNotFound(err) {
-		if err := r.Create(ctx, cm); err != nil {
-			return supergraph, ctrl.Result{}, err
-		}
-	} else {
-		if err := r.Update(ctx, cm); err != nil {
-			return supergraph, ctrl.Result{}, err
-		}
 	}
 
 	supergraph.Status.ConfigMap = corev1.LocalObjectReference{
@@ -525,6 +471,43 @@ func (r *SuperGraphReconciler) reconcileConfig(ctx context.Context, supergraph i
 	}
 
 	return supergraph, ctrl.Result{}, nil
+}
+
+func (r *SuperGraphReconciler) createOrUpdateWithOwnershipValidation(ctx context.Context, owner client.Object, obj client.Object) error {
+	existing := obj.DeepCopyObject().(client.Object)
+	err := r.Get(ctx, client.ObjectKey{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}, existing)
+
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	if apierrors.IsNotFound(err) {
+		if err := r.Create(ctx, obj); err != nil {
+			return err
+		}
+	} else {
+		if !isOwner(owner, existing) {
+			return fmt.Errorf("can not take ownership of existing resource: %s", obj.GetName())
+		}
+
+		obj.GetObjectKind().SetGroupVersionKind(existing.GetObjectKind().GroupVersionKind())
+		err := r.Client.Patch(
+			ctx,
+			obj,
+			client.Apply,
+			client.FieldOwner("apollo-controller"),
+			client.ForceOwnership,
+		)
+
+		if err != nil {
+			return fmt.Errorf("can not patch resource: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (r *SuperGraphReconciler) patchStatus(ctx context.Context, supergraph *infrav1beta1.SuperGraph) error {

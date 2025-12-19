@@ -310,6 +310,11 @@ func (r *SuperGraphSchemaReconciler) reconcile(ctx context.Context, schema infra
 		return r.handleReconcilerState(ctx, schema, pod, checksum, logger)
 	}
 
+	if len(subgraphs) == 0 {
+		schema = infrav1beta1.SuperGraphSchemaReady(schema, metav1.ConditionFalse, "ReconciliationFailed", "empty subgraph catalog")
+		return schema, ctrl.Result{}, nil
+	}
+
 	return r.createReconciler(ctx, schema, subgraphs, checksum, logger)
 }
 
