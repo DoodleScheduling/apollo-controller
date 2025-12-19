@@ -494,7 +494,7 @@ func (r *SuperGraphReconciler) createOrUpdateWithOwnershipValidation(ctx context
 		}
 
 		obj.GetObjectKind().SetGroupVersionKind(existing.GetObjectKind().GroupVersionKind())
-		err := r.Client.Patch(
+		err := r.Patch(
 			ctx,
 			obj,
 			client.Apply,
