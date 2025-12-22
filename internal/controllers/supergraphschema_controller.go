@@ -548,6 +548,7 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 	template.Annotations["apollo-controller/spec-version"] = fmt.Sprintf("%d", schema.Generation)
 	template.Annotations["apollo-controller/subgraphs-checksum"] = checksum
 
+	restartPolicy := corev1.ContainerRestartPolicyOnFailure
 	containers := []corev1.Container{
 		{
 			Name: "supergraph-composer",
@@ -556,7 +557,8 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 				"-c",
 				"supergraph compose /supergraph/supergraph.yaml > /output/schema.graphql",
 			},
-			Image: r.DefaultSuperGraphImage,
+			RestartPolicy: &restartPolicy,
+			Image:         r.DefaultSuperGraphImage,
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      "supergraph-config",
@@ -585,6 +587,13 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 				{
 					Name:      "output",
 					MountPath: "/output",
+				},
+			},
+			Ports: []corev1.ContainerPort{
+				{
+					Name:          "http",
+					ContainerPort: 29000,
+					Protocol:      corev1.ProtocolTCP,
 				},
 			},
 		},
