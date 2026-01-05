@@ -37,13 +37,6 @@ rules:
   - apollo.infra.doodle.com
   resources:
   - subgraphs
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - apollo.infra.doodle.com
-  resources:
   - supergraphs
   - supergraphschemas
   verbs:
@@ -57,6 +50,7 @@ rules:
 - apiGroups:
   - apollo.infra.doodle.com
   resources:
+  - subgraphs/status
   - supergraphs/status
   - supergraphschemas/status
   verbs:

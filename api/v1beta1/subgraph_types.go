@@ -29,17 +29,28 @@ func init() {
 // SubGraphSpec
 // +k8s:openapi-gen=true
 type SubGraphSpec struct {
-	Endpoint string  `json:"endpoint,omitempty"`
-	Suspend  bool    `json:"suspend,omitempty"`
-	Schema   *Schema `json:"schema,omitempty"`
+	Endpoint string           `json:"endpoint,omitempty"`
+	Suspend  bool             `json:"suspend,omitempty"`
+	Timeout  *metav1.Duration `json:"timeout,omitempty"`
+	Interval *metav1.Duration `json:"interval,omitempty"`
+	Schema   Schema           `json:"schema,omitempty"`
 }
 
+// +kubebuilder:validation:ExactlyOneOf=sdl;http
 type Schema struct {
-	SDL string `json:"sdl,omitempty"`
+	SDL  *string     `json:"sdl,omitempty"`
+	HTTP *SchemaHTTP `json:"http,omitempty"`
+}
+
+type SchemaHTTP struct {
+	Endpoint string `json:"endpoint,omitempty"`
 }
 
 type SubGraphStatus struct {
 	SHA256Checksum string `json:"sha256Checksum,omitempty"`
+
+	// Schema
+	Schema string `json:"schema,omitempty"`
 
 	// ObservedGeneration is the last generation reconciled by the controller
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`

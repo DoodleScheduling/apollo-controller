@@ -117,7 +117,7 @@ flowchart LR
     SchemaReconciler["SuperGraph Composer Pod"]
 
     SuperGraphSchema --> SchemaReconciler
-    SuperGraphSchema --> SuperGraph
+    SuperGraph --> SuperGraphSchema
     Subgraph1 --> SuperGraphSchema
     Subgraph2 --> SuperGraphSchema
     Subgraph3 --> SuperGraphSchema
@@ -203,6 +203,21 @@ spec:
           runAsUser: 65532
 ```
 
+## Subgraph schema from other sources
+Besides inline schemas a subgraph schema can also be fetched via http:
+
+```yaml
+apiVersion: apollo.infra.doodle.com/v1beta1
+kind: SubGraph
+metadata:
+  name: users
+spec:
+  endpoint: http://user-server/graphql
+  schema:
+    http:
+      endpoint: http://user-server/graphql-schema
+```
+
 ## Suspend/Resume reconciliation
 
 All resources support suspending reconciliation.
@@ -227,6 +242,8 @@ Alternatively you may get the bundled manifests in each release to deploy it usi
 The controller can be configured using cmd args:
 ```
 --concurrent int                            The number of concurrent SuperGraph reconciles. (default 4)
+--default-httpd-image string                The default image which provides an http server to serve the directory /output. By default httpd (busybox) is used. (default "busybox:1")
+--default-supergraph-image string           The default rover cli image. (default "ghcr.io/doodlescheduling/supergraph:v0")
 --enable-leader-election                    Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.
 --graceful-shutdown-timeout duration        The duration given to the reconciler to finish before forcibly stopping. (default 10m0s)
 --health-addr string                        The address the health endpoint binds to. (default ":9557")
