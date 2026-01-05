@@ -275,6 +275,10 @@ func (r *SuperGraphReconciler) reconcile(ctx context.Context, supergraph infrav1
 		deploymentTemplate.Spec.Template.Labels = make(map[string]string)
 	}
 
+	if deploymentTemplate.Spec.Template.Annotations == nil {
+		deploymentTemplate.Spec.Template.Annotations = make(map[string]string)
+	}
+
 	deploymentTemplate.Spec.Selector = &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"app.kubernetes.io/instance":   "apollo-router",
@@ -282,6 +286,8 @@ func (r *SuperGraphReconciler) reconcile(ctx context.Context, supergraph infrav1
 			"apollo-controller/supergraph": supergraph.Name,
 		},
 	}
+
+	deploymentTemplate.Spec.Template.Annotations["apollo-controller/schema-checksum"] = graphschema.Status.ObservedSHA256Checksum
 
 	if deploymentTemplate.Spec.Replicas == nil {
 		deploymentTemplate.Spec.Replicas = &replicas

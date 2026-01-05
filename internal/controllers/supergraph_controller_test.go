@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -124,6 +125,7 @@ var _ = Describe("SuperGraph controller", func() {
 				},
 				Spec: v1beta1.SuperGraphSchemaSpec{},
 			}
+
 			Expect(k8sClient.Create(ctx, schema)).Should(Succeed())
 			configMapName := fmt.Sprintf("supergraph-schema-%s", schemaName)
 			instanceLookupKey := types.NamespacedName{Name: schemaName, Namespace: "default"}
@@ -135,6 +137,8 @@ var _ = Describe("SuperGraph controller", func() {
 				}
 
 				schema.Status.ConfigMap.Name = configMapName
+				schema.Status.ObservedSHA256Checksum = "dummy-check"
+
 				return k8sClient.Status().Update(ctx, schema)
 			}, timeout, interval).Should(Not(HaveOccurred()))
 
@@ -223,9 +227,52 @@ var _ = Describe("SuperGraph controller", func() {
 				"app.kubernetes.io/name":       "apollo-router",
 			}))
 
+			Expect(reconciledInstance.Spec.Template.ObjectMeta.Annotations).To(Equal(map[string]string{
+				"apollo-controller/schema-checksum": schema.Status.ObservedSHA256Checksum,
+			}))
+
 			Expect(reconciledInstance.Spec.Template.Spec.Containers[0].Name).To(Equal("router"))
 			Expect(reconciledInstance.Spec.Template.Spec.Containers[0].Image).To(Equal("ghcr.io/apollographql/router:v2.9.0"))
 			Expect(reconciledInstance.OwnerReferences[0].Name).Should(Equal(supergraphName))
+		})
+
+		It("updates the deployment if the referenced schema checksum changes", func() {
+			ctx := context.Background()
+
+			schema = &v1beta1.SuperGraphSchema{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      schemaName,
+					Namespace: "default",
+				},
+				Spec: v1beta1.SuperGraphSchemaSpec{},
+			}
+			instanceLookupKey := types.NamespacedName{Name: schemaName, Namespace: "default"}
+
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, instanceLookupKey, schema)
+				if err != nil {
+					return err
+				}
+
+				schema.Status.ObservedSHA256Checksum = "dummy-check-v2"
+				return k8sClient.Status().Update(ctx, schema)
+			}, timeout, interval).Should(Not(HaveOccurred()))
+
+			instanceLookupKey = types.NamespacedName{Name: fmt.Sprintf("apollo-router-%s", supergraphName), Namespace: "default"}
+			reconciledInstance := &appsv1.Deployment{}
+
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, instanceLookupKey, reconciledInstance)
+				if err != nil {
+					return err
+				}
+
+				if reconciledInstance.Spec.Template.ObjectMeta.Annotations["apollo-controller/schema-checksum"] != "dummy-check-v2" {
+					return errors.New("schema checksum not updated")
+				}
+
+				return nil
+			}, timeout, interval).Should(BeNil())
 		})
 
 		It("cleans up", func() {
