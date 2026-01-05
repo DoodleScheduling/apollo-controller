@@ -11,8 +11,8 @@ spec:
         product(id: ID!): Product
       }
 
-      type Product @key(fields: "id") {
-        id: ID!
+      type Product {
+        id: String!
         name: String!
         price: Float!
       }
@@ -30,7 +30,7 @@ spec:
         user(id: ID!): User
       }
 
-      type User @key(fields: "id") {
-        id: ID!
+      type User {
+        id: String!
         username: String!
       }
