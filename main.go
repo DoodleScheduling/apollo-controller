@@ -174,10 +174,11 @@ func main() {
 	}
 
 	subgraphReconciler := &controllers.SubGraphReconciler{
-		Client:   mgr.GetClient(),
-		Log:      ctrl.Log.WithName("controllers").WithName("SubGraph"),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("SubGraph"),
+		Client:     mgr.GetClient(),
+		Log:        ctrl.Log.WithName("controllers").WithName("SubGraph"),
+		Scheme:     mgr.GetScheme(),
+		Recorder:   mgr.GetEventRecorderFor("SubGraph"),
+		HTTPClient: http.DefaultClient,
 	}
 
 	if err = subgraphReconciler.SetupWithManager(mgr, controllers.SubGraphReconcilerOptions{
@@ -194,7 +195,7 @@ func main() {
 		Recorder:               mgr.GetEventRecorderFor("SuperGraphSchema"),
 		DefaultSuperGraphImage: defaultSuperGraphImage,
 		DefaultHTTPDImage:      defaultHTTPDImage,
-		HTTPGetter:             http.DefaultClient,
+		HTTPClient:             http.DefaultClient,
 	}
 
 	if err = supergraphschemaReconciler.SetupWithManager(mgr, controllers.SuperGraphSchemaReconcilerOptions{

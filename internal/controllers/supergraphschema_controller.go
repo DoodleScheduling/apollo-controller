@@ -17,7 +17,6 @@ limitations under the License.
 package controllers
 
 import (
-	"bytes"
 	"cmp"
 	"context"
 	"crypto/sha256"
@@ -65,11 +64,11 @@ type SuperGraphSchemaReconciler struct {
 	Recorder               record.EventRecorder
 	DefaultSuperGraphImage string
 	DefaultHTTPDImage      string
-	HTTPGetter             httpGetter
+	HTTPClient             *http.Client
 }
 
-type httpGetter interface {
-	Get(url string) (*http.Response, error)
+type httpClient interface {
+	Do(req *http.Request) (*http.Response, error)
 }
 
 type SuperGraphSchemaReconcilerOptions struct {
@@ -174,6 +173,12 @@ func (r *SuperGraphSchemaReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if schema.Spec.Suspend {
 		return ctrl.Result{}, nil
+	}
+
+	if schema.Spec.Timeout != nil {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, schema.Spec.Timeout.Duration)
+		defer cancel()
 	}
 
 	schema, result, err := r.reconcile(ctx, schema, logger)
@@ -335,14 +340,14 @@ func (r *SuperGraphSchemaReconciler) createSuperGraphConfig(schema infrav1beta1.
 	}
 
 	for _, subgraph := range subgraphs {
-		if subgraph.Spec.Schema == nil {
+		if subgraph.Status.Schema == "" {
 			continue
 		}
 
 		config.SubGraphs[subgraph.Name] = subGraphConfig{
 			RoutingURL: subgraph.Spec.Endpoint,
 			Schema: subGraphSchema{
-				SDL: subgraph.Spec.Schema.SDL,
+				SDL: subgraph.Status.Schema,
 			},
 		}
 	}
@@ -421,9 +426,14 @@ func (r *SuperGraphSchemaReconciler) parseSuperGraphOutput(ctx context.Context, 
 	logger.Info("fetch composed config from url", "url", scrapeURL)
 	var output supergraphOutput
 
-	resp, err := http.Get(scrapeURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, scrapeURL, nil)
 	if err != nil {
-		return output, fmt.Errorf("request failed: %w", err)
+		return output, fmt.Errorf("failed to build http schema request: %w", err)
+	}
+
+	resp, err := r.HTTPClient.Do(req)
+	if err != nil {
+		return output, fmt.Errorf("failed to fetch schema from reconciler: %w", err)
 	}
 
 	defer func() {
@@ -435,15 +445,13 @@ func (r *SuperGraphSchemaReconciler) parseSuperGraphOutput(ctx context.Context, 
 		return output, fmt.Errorf("bad status: %s", resp.Status)
 	}
 
-	var b []byte
-	buf := bytes.NewBuffer(b)
-	_, err = io.Copy(buf, resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return output, fmt.Errorf("write failed: %w", err)
+		return output, fmt.Errorf("failed to read schema body from reconciler: %w", err)
 	}
 
-	if err := json.Unmarshal(buf.Bytes(), &output); err != nil {
-		return output, fmt.Errorf("supergraph composer failed: %w", err)
+	if err := json.Unmarshal(b, &output); err != nil {
+		return output, fmt.Errorf("supergraph composer unmarshal body failed: %w", err)
 	}
 
 	return output, nil

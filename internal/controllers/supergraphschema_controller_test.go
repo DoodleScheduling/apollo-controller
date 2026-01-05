@@ -58,6 +58,7 @@ var _ = Describe("SuperGraphSchema controller", func() {
 	When("a simple schema is reconciled", func() {
 		schemaName := fmt.Sprintf("schema-%s", rand.String(5))
 		subName := fmt.Sprintf("sub-%s", rand.String(5))
+		schemaSDL := "type Query { hello: String }"
 
 		It("should transition into progressing", func() {
 			By("creating a new SubGraph")
@@ -70,8 +71,8 @@ var _ = Describe("SuperGraphSchema controller", func() {
 					},
 				},
 				Spec: v1beta1.SubGraphSpec{
-					Schema: &v1beta1.Schema{
-						SDL: "type Query { hello: String }",
+					Schema: v1beta1.Schema{
+						SDL: &schemaSDL,
 					},
 				},
 			}
@@ -271,6 +272,7 @@ subgraphs:
 	When("an invalid output from the supergraph composer fails reconciliation", func() {
 		schemaName := fmt.Sprintf("schema-%s", rand.String(5))
 		subName := fmt.Sprintf("sub-%s", rand.String(5))
+		schemaSDL := "type Query { hello: String }"
 
 		It("should transition into progressing", func() {
 			By("creating a new SubGraph")
@@ -283,8 +285,8 @@ subgraphs:
 					},
 				},
 				Spec: v1beta1.SubGraphSpec{
-					Schema: &v1beta1.Schema{
-						SDL: "type Query { hello: String }",
+					Schema: v1beta1.Schema{
+						SDL: &schemaSDL,
 					},
 				},
 			}
@@ -408,7 +410,7 @@ subgraphs:
 						Type:    v1beta1.ConditionReady,
 						Status:  metav1.ConditionFalse,
 						Reason:  "ReconciliationFailed",
-						Message: "supergraph composer failed: unexpected end of JSON input",
+						Message: "supergraph composer unmarshal body failed: unexpected end of JSON input",
 					},
 					{
 						Type:   v1beta1.ConditionReconciling,
@@ -447,6 +449,7 @@ subgraphs:
 	When("a schema which has no resource selector will not select any sub resources", func() {
 		schemaName := fmt.Sprintf("schema-%s", rand.String(5))
 		subName := fmt.Sprintf("schema-%s", rand.String(5))
+		schemaSDL := "type Query { hello: String }"
 
 		It("should transition into progressing", func() {
 			By("creating a new SuperGraphSchema")
@@ -457,8 +460,8 @@ subgraphs:
 					Namespace: "default",
 				},
 				Spec: v1beta1.SubGraphSpec{
-					Schema: &v1beta1.Schema{
-						SDL: "type Query { hello: String }",
+					Schema: v1beta1.Schema{
+						SDL: &schemaSDL,
 					},
 				},
 			}
@@ -507,6 +510,7 @@ subgraphs:
 		schemaName := fmt.Sprintf("schema-%s", rand.String(5))
 		subName := fmt.Sprintf("sub-a-%s", rand.String(5))
 		subName2 := fmt.Sprintf("sub-b-%s", rand.String(5))
+		schemaSDL := "type Query { hello: String }"
 
 		It("recreates the reconciler with a new secret", func() {
 			By("creating a new SubGraph")
@@ -519,8 +523,8 @@ subgraphs:
 					},
 				},
 				Spec: v1beta1.SubGraphSpec{
-					Schema: &v1beta1.Schema{
-						SDL: "type Query { hello: String }",
+					Schema: v1beta1.Schema{
+						SDL: &schemaSDL,
 					},
 				},
 			}
@@ -585,8 +589,8 @@ subgraphs:
 					},
 				},
 				Spec: v1beta1.SubGraphSpec{
-					Schema: &v1beta1.Schema{
-						SDL: "type Query { hello: String }",
+					Schema: v1beta1.Schema{
+						SDL: &schemaSDL,
 					},
 				},
 			}
@@ -670,6 +674,7 @@ subgraphs:
 	When("a schema reconciliation is triggered if a subgraph is changed", func() {
 		schemaName := fmt.Sprintf("schema-%s", rand.String(5))
 		subName := fmt.Sprintf("sub-%s", rand.String(5))
+		schemaSDL := "type Query { hello: String }"
 
 		It("recreates the reconciler with a new secret", func() {
 			By("creating a new SuperGraphSchema")
@@ -683,8 +688,8 @@ subgraphs:
 					},
 				},
 				Spec: v1beta1.SubGraphSpec{
-					Schema: &v1beta1.Schema{
-						SDL: "type Query { hello: String }",
+					Schema: v1beta1.Schema{
+						SDL: &schemaSDL,
 					},
 				},
 			}
@@ -795,6 +800,7 @@ subgraphs:
 	When("a schema with a custom reconciler pod template is reconciled", func() {
 		schemaName := fmt.Sprintf("schema-%s", rand.String(5))
 		subName := fmt.Sprintf("sub-%s", rand.String(5))
+		schemaSDL := "type Query { hello: String }"
 
 		It("should transition into progressing", func() {
 			By("creating a new SubGraph")
@@ -807,8 +813,8 @@ subgraphs:
 					},
 				},
 				Spec: v1beta1.SubGraphSpec{
-					Schema: &v1beta1.Schema{
-						SDL: "type Query { hello: String }",
+					Schema: v1beta1.Schema{
+						SDL: &schemaSDL,
 					},
 				},
 			}
@@ -949,6 +955,7 @@ subgraphs:
 	When("a schema with an interval > 0 is triggered if a subgraph is changed", func() {
 		schemaName := fmt.Sprintf("schema-%s", rand.String(5))
 		subName := fmt.Sprintf("sub-%s", rand.String(5))
+		schemaSDL := "type Query { hello: String }"
 
 		It("recreates the reconciler with a new secret", func() {
 			By("creating a new SuperGraphSchema")
@@ -964,8 +971,8 @@ subgraphs:
 				},
 				Spec: v1beta1.SubGraphSpec{
 					Endpoint: "https://example-svc.com",
-					Schema: &v1beta1.Schema{
-						SDL: "type Query { hello: String }",
+					Schema: v1beta1.Schema{
+						SDL: &schemaSDL,
 					},
 				},
 			}

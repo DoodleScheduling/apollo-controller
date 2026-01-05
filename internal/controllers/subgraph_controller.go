@@ -19,7 +19,10 @@ package controllers
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
+	"io"
+	"net/http"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -41,9 +44,10 @@ import (
 // SubGraph reconciles a SubGraph object
 type SubGraphReconciler struct {
 	client.Client
-	Log      logr.Logger
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	Log        logr.Logger
+	Scheme     *runtime.Scheme
+	HTTPClient httpClient
+	Recorder   record.EventRecorder
 }
 
 type SubGraphReconcilerOptions struct {
@@ -88,7 +92,13 @@ func (r *SubGraphReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	subgraph, result, err := r.reconcile(ctx, subgraph)
+	if subgraph.Spec.Timeout != nil {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, subgraph.Spec.Timeout.Duration)
+		defer cancel()
+	}
+
+	subgraph, result, err := r.reconcile(ctx, subgraph, logger)
 	subgraph.Status.ObservedGeneration = subgraph.GetGeneration()
 
 	if err != nil {
@@ -103,18 +113,57 @@ func (r *SubGraphReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{Requeue: true}, err
 	}
 
+	if err != nil {
+		return result, err
+	}
+
+	if subgraph.Spec.Interval != nil {
+		return ctrl.Result{RequeueAfter: subgraph.Spec.Interval.Duration}, nil
+	}
+
 	return result, err
 }
 
-func (r *SubGraphReconciler) reconcile(ctx context.Context, subgraph infrav1beta1.SubGraph) (infrav1beta1.SubGraph, ctrl.Result, error) {
-	if subgraph.Spec.Schema == nil {
-		return subgraph, ctrl.Result{}, fmt.Errorf("no schema defined")
+func (r *SubGraphReconciler) reconcile(ctx context.Context, subgraph infrav1beta1.SubGraph, logger logr.Logger) (infrav1beta1.SubGraph, ctrl.Result, error) {
+	var schema string
+	switch {
+	case subgraph.Spec.Schema.SDL != nil:
+		schema = *subgraph.Spec.Schema.SDL
+	case subgraph.Spec.Schema.HTTP != nil:
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, subgraph.Spec.Schema.HTTP.Endpoint, nil)
+		if err != nil {
+			return subgraph, ctrl.Result{}, fmt.Errorf("failed to build http schema request: %w", err)
+		}
+
+		resp, err := r.HTTPClient.Do(req)
+		if err != nil {
+			return subgraph, ctrl.Result{}, fmt.Errorf("failed to fetch schema from http endpoint: %w", err)
+		}
+
+		defer func() {
+			_ = resp.Body.Close()
+		}()
+
+		logger.Info("schema fetch result", "url", subgraph.Spec.Schema.HTTP.Endpoint, "http-code", resp.StatusCode, "content-length", resp.ContentLength)
+		if resp.StatusCode != http.StatusOK {
+			return subgraph, ctrl.Result{}, fmt.Errorf("failed to fetch schema from http endpoint, unexpected status: %s", resp.Status)
+		}
+
+		b, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return subgraph, ctrl.Result{}, fmt.Errorf("failed to read schema body from http request: %w", err)
+		}
+
+		schema = string(b)
+	default:
+		return subgraph, ctrl.Result{}, errors.New("exactly one schema source is required")
 	}
 
 	checksumSha := sha256.New()
-	checksumSha.Write([]byte(subgraph.Spec.Schema.SDL))
+	checksumSha.Write([]byte(schema))
 	checksum := fmt.Sprintf("%x", checksumSha.Sum(nil))
 	subgraph.Status.SHA256Checksum = checksum
+	subgraph.Status.Schema = schema
 
 	subgraph = infrav1beta1.SubGraphReady(subgraph, metav1.ConditionTrue, "ReconciliationSuccessful", "schema available")
 	return subgraph, ctrl.Result{}, nil

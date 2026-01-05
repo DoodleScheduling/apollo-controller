@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"path/filepath"
 	"testing"
 
@@ -78,9 +79,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&SubGraphReconciler{
-		Client:   k8sManager.GetClient(),
-		Log:      ctrl.Log.WithName("controllers").WithName("SubGraph"),
-		Recorder: k8sManager.GetEventRecorderFor("SubGraph"),
+		Client:     k8sManager.GetClient(),
+		Log:        ctrl.Log.WithName("controllers").WithName("SubGraph"),
+		Recorder:   k8sManager.GetEventRecorderFor("SubGraph"),
+		HTTPClient: http.DefaultClient,
 	}).SetupWithManager(k8sManager, SubGraphReconcilerOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
@@ -90,6 +92,7 @@ var _ = BeforeSuite(func() {
 		Recorder:               k8sManager.GetEventRecorderFor("SuperGraphSchma"),
 		DefaultSuperGraphImage: "supergraph:v0",
 		DefaultHTTPDImage:      "busybox:v0",
+		HTTPClient:             http.DefaultClient,
 	}).SetupWithManager(k8sManager, SuperGraphSchemaReconcilerOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
