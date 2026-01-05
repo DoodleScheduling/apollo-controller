@@ -446,6 +446,77 @@ subgraphs:
 		})
 	})
 
+	When("a supergraphschema reconciliation runs into a specified timeout", func() {
+		schemaName := fmt.Sprintf("schema-%s", rand.String(5))
+		subName := fmt.Sprintf("sub-%s", rand.String(5))
+		schemaSDL := "type Query { hello: String }"
+
+		It("should transition into progressing", func() {
+			By("creating a new SubGraph")
+			subgraph := &v1beta1.SubGraph{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      subName,
+					Namespace: "default",
+					Labels: map[string]string{
+						"schema": schemaName,
+					},
+				},
+				Spec: v1beta1.SubGraphSpec{
+					Schema: v1beta1.Schema{
+						SDL: &schemaSDL,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, subgraph)).Should(Succeed())
+
+			By("creating a new SuperGraphSchema")
+			ctx := context.Background()
+			schema := &v1beta1.SuperGraphSchema{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      schemaName,
+					Namespace: "default",
+				},
+				Spec: v1beta1.SuperGraphSchemaSpec{
+					Timeout:           &metav1.Duration{},
+					FederationVersion: "2",
+					SubGraphSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"schema": schemaName,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, schema)).Should(Succeed())
+
+			By("waiting for the reconciliation")
+			instanceLookupKey := types.NamespacedName{Name: schemaName, Namespace: "default"}
+			reconciledInstance := &v1beta1.SuperGraphSchema{}
+
+			expectedStatus := &v1beta1.SuperGraphSchemaStatus{
+				ObservedGeneration: 1,
+				Conditions: []metav1.Condition{
+					{
+						Type:    v1beta1.ConditionReady,
+						Status:  metav1.ConditionFalse,
+						Reason:  "ReconciliationFailed",
+						Message: "client rate limiter Wait returned an error: context deadline exceeded",
+					},
+				},
+			}
+
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, instanceLookupKey, reconciledInstance)
+				if err != nil {
+					return err
+				}
+
+				return needsExactConditions(expectedStatus.Conditions, reconciledInstance.Status.Conditions)
+			}, timeout, interval).Should(Not(HaveOccurred()))
+
+			Expect(reconciledInstance.Status.Reconciler.Name).Should(Equal(""))
+		})
+	})
+
 	When("a schema which has no resource selector will not select any sub resources", func() {
 		schemaName := fmt.Sprintf("schema-%s", rand.String(5))
 		subName := fmt.Sprintf("schema-%s", rand.String(5))
