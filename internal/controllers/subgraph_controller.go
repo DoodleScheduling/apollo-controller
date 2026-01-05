@@ -25,6 +25,8 @@ import (
 	"net/http"
 
 	"github.com/go-logr/logr"
+	"github.com/vektah/gqlparser/v2"
+	"github.com/vektah/gqlparser/v2/ast"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -90,13 +92,15 @@ func (r *SubGraphReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
+	var cancel context.CancelFunc
+	reconcileCtx := ctx
+
 	if subgraph.Spec.Timeout != nil {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, subgraph.Spec.Timeout.Duration)
+		reconcileCtx, cancel = context.WithTimeout(ctx, subgraph.Spec.Timeout.Duration)
 		defer cancel()
 	}
 
-	subgraph, result, err := r.reconcile(ctx, subgraph, logger)
+	subgraph, result, err := r.reconcile(reconcileCtx, subgraph, logger)
 	subgraph.Status.ObservedGeneration = subgraph.GetGeneration()
 
 	if err != nil {
@@ -155,6 +159,17 @@ func (r *SubGraphReconciler) reconcile(ctx context.Context, subgraph infrav1beta
 		schema = string(b)
 	default:
 		return subgraph, ctrl.Result{}, errors.New("exactly one schema source is required")
+	}
+
+	if !subgraph.Spec.SkipSchemaValidation {
+		_, err := gqlparser.LoadSchema(&ast.Source{
+			Name:  "schema.graphql",
+			Input: schema,
+		})
+
+		if err != nil {
+			return subgraph, ctrl.Result{}, fmt.Errorf("schema is invalid: %w", err)
+		}
 	}
 
 	checksumSha := sha256.New()

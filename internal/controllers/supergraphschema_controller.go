@@ -175,13 +175,15 @@ func (r *SuperGraphSchemaReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
+	var cancel context.CancelFunc
+	reconcileCtx := ctx
+
 	if schema.Spec.Timeout != nil {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, schema.Spec.Timeout.Duration)
+		reconcileCtx, cancel = context.WithTimeout(ctx, schema.Spec.Timeout.Duration)
 		defer cancel()
 	}
 
-	schema, result, err := r.reconcile(ctx, schema, logger)
+	schema, result, err := r.reconcile(reconcileCtx, schema, logger)
 	schema.Status.ObservedGeneration = schema.GetGeneration()
 
 	if err != nil {

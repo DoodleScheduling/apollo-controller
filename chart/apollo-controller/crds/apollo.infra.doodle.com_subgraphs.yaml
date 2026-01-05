@@ -66,6 +66,8 @@ spec:
                 - message: exactly one of the fields in [sdl http] must be set
                   rule: '[has(self.sdl),has(self.http)].filter(x,x==true).size() ==
                     1'
+              skipSchemaValidation:
+                type: boolean
               suspend:
                 type: boolean
               timeout:

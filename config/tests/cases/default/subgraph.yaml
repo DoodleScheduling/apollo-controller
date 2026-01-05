@@ -6,16 +6,13 @@ spec:
   endpoint: http://product-service/graphql
   schema:
     sdl: |
-      extend schema
-        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@tag"])
-
       type Query {
         products: [Product!]!
         product(id: ID!): Product
       }
 
-      type Product @key(fields: "id") {
-        id: ID!
+      type Product {
+        id: String!
         name: String!
         price: Float!
       }
@@ -28,15 +25,12 @@ spec:
   endpoint: http://user-server/graphql
   schema:
     sdl: |
-      extend schema
-        @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@tag"])
-
       type Query {
         users: [User!]!
         user(id: ID!): User
       }
 
-      type User @key(fields: "id") {
-        id: ID!
+      type User {
+        id: String!
         username: String!
       }

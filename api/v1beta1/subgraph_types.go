@@ -32,11 +32,12 @@ func init() {
 // SubGraphSpec
 // +k8s:openapi-gen=true
 type SubGraphSpec struct {
-	Endpoint string           `json:"endpoint,omitempty"`
-	Suspend  bool             `json:"suspend,omitempty"`
-	Timeout  *metav1.Duration `json:"timeout,omitempty"`
-	Interval *metav1.Duration `json:"interval,omitempty"`
-	Schema   Schema           `json:"schema,omitempty"`
+	Endpoint             string           `json:"endpoint,omitempty"`
+	Suspend              bool             `json:"suspend,omitempty"`
+	SkipSchemaValidation bool             `json:"skipSchemaValidation,omitempty"`
+	Timeout              *metav1.Duration `json:"timeout,omitempty"`
+	Interval             *metav1.Duration `json:"interval,omitempty"`
+	Schema               Schema           `json:"schema,omitempty"`
 }
 
 // +kubebuilder:validation:ExactlyOneOf=sdl;http

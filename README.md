@@ -117,7 +117,7 @@ flowchart LR
     SchemaReconciler["SuperGraph Composer Pod"]
 
     SuperGraphSchema --> SchemaReconciler
-    SuperGraph --> SuperGraphSchema
+    SuperGraphSchema --> SuperGraph
     Subgraph1 --> SuperGraphSchema
     Subgraph2 --> SuperGraphSchema
     Subgraph3 --> SuperGraphSchema
