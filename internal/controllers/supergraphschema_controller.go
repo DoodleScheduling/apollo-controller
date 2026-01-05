@@ -276,6 +276,7 @@ func (r *SuperGraphSchemaReconciler) reconcile(ctx context.Context, schema infra
 
 	// cleanup reconciler pod if stale
 	if needUpdate {
+		conditions.Delete(&schema, infrav1beta1.ConditionReconciling)
 		logger.V(1).Info("schema checksum changed, delete stale reconciler", "pod-name", schema.Status.Reconciler)
 		return schema, ctrl.Result{Requeue: true}, cleanup()
 	}
