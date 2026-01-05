@@ -41,6 +41,10 @@ import (
 	infrav1beta1 "github.com/DoodleScheduling/apollo-controller/api/v1beta1"
 )
 
+// +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=subgraphs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=subgraphs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+
 // SubGraph reconciles a SubGraph object
 type SubGraphReconciler struct {
 	client.Client
