@@ -208,10 +208,12 @@ subgraphs:
 			By("setting the reconciler pod as done")
 			reconcilerPodName := reconciledInstance.Status.Reconciler.Name
 			pod := &corev1.Pod{}
-			Expect(k8sClient.Get(ctx, types.NamespacedName{
-				Name:      reconciledInstance.Status.Reconciler.Name,
-				Namespace: reconciledInstance.Namespace,
-			}, pod)).Should(Succeed())
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{
+					Name:      reconciledInstance.Status.Reconciler.Name,
+					Namespace: reconciledInstance.Namespace,
+				}, pod)
+			}, timeout, interval).Should(Succeed())
 
 			// Set PodIP so the controller can fetch the schema
 			pod.Status.PodIP = "127.0.0.1"
@@ -612,7 +614,7 @@ subgraphs:
 					Name:      schemaName,
 					Namespace: "default",
 				},
-				Spec: v1beta1.SuperGraphSchemaSpec{
+				Spec: v1beta1.SuperGraphSchemaSpec{7
 					FederationVersion: "2.2",
 					SubGraphSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
