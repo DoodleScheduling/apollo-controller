@@ -8903,8 +8903,4 @@ spec:
     served: true
     storage: true
     subresources:
-      scale:
-        labelSelectorPath: .status.selector
-        specReplicasPath: .spec.deploymentTemplate.spec.replicas
-        statusReplicasPath: .status.replicas
       status: {}
