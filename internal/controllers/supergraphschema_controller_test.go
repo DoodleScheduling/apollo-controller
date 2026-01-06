@@ -614,7 +614,7 @@ subgraphs:
 					Name:      schemaName,
 					Namespace: "default",
 				},
-				Spec: v1beta1.SuperGraphSchemaSpec{7
+				Spec: v1beta1.SuperGraphSchemaSpec{
 					FederationVersion: "2.2",
 					SubGraphSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
