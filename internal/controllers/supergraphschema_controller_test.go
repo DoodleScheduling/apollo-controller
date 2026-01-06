@@ -128,10 +128,12 @@ var _ = Describe("SuperGraphSchema controller", func() {
 
 			By("making sure there is a reconciler pod")
 			pod := &corev1.Pod{}
-			Expect(k8sClient.Get(ctx, types.NamespacedName{
-				Name:      reconciledInstance.Status.Reconciler.Name,
-				Namespace: reconciledInstance.Namespace,
-			}, pod)).Should(Succeed())
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{
+					Name:      reconciledInstance.Status.Reconciler.Name,
+					Namespace: reconciledInstance.Namespace,
+				}, pod)
+			}, timeout, interval).Should(Succeed())
 
 			By("validating the reconciler pod")
 			Expect(pod.Spec.Containers).Should(HaveLen(2))
@@ -206,10 +208,12 @@ subgraphs:
 			By("setting the reconciler pod as done")
 			reconcilerPodName := reconciledInstance.Status.Reconciler.Name
 			pod := &corev1.Pod{}
-			Expect(k8sClient.Get(ctx, types.NamespacedName{
-				Name:      reconciledInstance.Status.Reconciler.Name,
-				Namespace: reconciledInstance.Namespace,
-			}, pod)).Should(Succeed())
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{
+					Name:      reconciledInstance.Status.Reconciler.Name,
+					Namespace: reconciledInstance.Namespace,
+				}, pod)
+			}, timeout, interval).Should(Succeed())
 
 			// Set PodIP so the controller can fetch the schema
 			pod.Status.PodIP = "127.0.0.1"
@@ -342,10 +346,12 @@ subgraphs:
 
 			By("making sure there is a reconciler pod")
 			pod := &corev1.Pod{}
-			Expect(k8sClient.Get(ctx, types.NamespacedName{
-				Name:      reconciledInstance.Status.Reconciler.Name,
-				Namespace: reconciledInstance.Namespace,
-			}, pod)).Should(Succeed())
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{
+					Name:      reconciledInstance.Status.Reconciler.Name,
+					Namespace: reconciledInstance.Namespace,
+				}, pod)
+			}, timeout, interval).Should(Succeed())
 
 			pod.Status.PodIP = "127.0.0.1"
 			Expect(k8sClient.Status().Update(ctx, pod)).Should(Succeed())
@@ -967,10 +973,12 @@ subgraphs:
 
 			By("making sure there is a reconciler pod")
 			pod := &corev1.Pod{}
-			Expect(k8sClient.Get(ctx, types.NamespacedName{
-				Name:      reconciledInstance.Status.Reconciler.Name,
-				Namespace: reconciledInstance.Namespace,
-			}, pod)).Should(Succeed())
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{
+					Name:      reconciledInstance.Status.Reconciler.Name,
+					Namespace: reconciledInstance.Namespace,
+				}, pod)
+			}, timeout, interval).Should(Succeed())
 
 			By("validating the reconciler pod")
 			envs := []corev1.EnvVar{

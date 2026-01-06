@@ -51,7 +51,8 @@ type SchemaHTTP struct {
 }
 
 type SubGraphStatus struct {
-	SHA256Checksum string `json:"sha256Checksum,omitempty"`
+	// ObservedSHA256Checksum is a checksum of the discovered schema
+	ObservedSHA256Checksum string `json:"observedSHA256Checksum,omitempty"`
 
 	// Schema
 	Schema string `json:"schema,omitempty"`

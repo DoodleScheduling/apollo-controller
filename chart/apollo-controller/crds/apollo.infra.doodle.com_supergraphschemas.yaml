@@ -8738,6 +8738,8 @@ spec:
                 format: int64
                 type: integer
               observedSHA256Checksum:
+                description: ObservedSHA256Checksum is a checkum across all subgraph
+                  resources discovered by this resource
                 type: string
               reconciler:
                 description: |-

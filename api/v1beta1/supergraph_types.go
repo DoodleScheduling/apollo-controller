@@ -142,6 +142,9 @@ type SuperGraphStatus struct {
 	// ConfigMap reference
 	ConfigMap corev1.LocalObjectReference `json:"configMap,omitempty"`
 
+	// ObservedSHA256Checksum is a checksum of the discovered schema
+	ObservedSHA256Checksum string `json:"observedSHA256Checksum,omitempty"`
+
 	// ObservedGeneration is the last generation reconciled by the controller
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }

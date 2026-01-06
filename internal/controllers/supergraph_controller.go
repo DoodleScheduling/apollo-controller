@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 
@@ -220,11 +221,15 @@ func (r *SuperGraphReconciler) reconcile(ctx context.Context, supergraph infrav1
 		return supergraph, result, err
 	}
 
+	checksumSha := sha256.New()
+	checksumSha.Write(supergraph.Spec.RouterConfig.Raw)
+	configChecksum := fmt.Sprintf("%x", checksumSha.Sum(nil))
+	supergraph.Status.ObservedSHA256Checksum = configChecksum
+
 	var (
 		gid          int64 = 10000
 		uid          int64 = 10000
 		runAsNonRoot       = true
-		replicas     int32 = 1
 	)
 
 	controllerOwner := true
@@ -288,11 +293,7 @@ func (r *SuperGraphReconciler) reconcile(ctx context.Context, supergraph infrav1
 	}
 
 	deploymentTemplate.Spec.Template.Annotations["apollo-controller/schema-checksum"] = graphschema.Status.ObservedSHA256Checksum
-
-	if deploymentTemplate.Spec.Replicas == nil {
-		deploymentTemplate.Spec.Replicas = &replicas
-	}
-
+	deploymentTemplate.Spec.Template.Annotations["apollo-controller/config-checksum"] = supergraph.Status.ObservedSHA256Checksum
 	deploymentTemplate.Spec.Template.Labels["app.kubernetes.io/instance"] = "apollo-router"
 	deploymentTemplate.Spec.Template.Labels["app.kubernetes.io/name"] = "apollo-router"
 	deploymentTemplate.Spec.Template.Labels["apollo-controller/supergraph"] = supergraph.Name
@@ -327,12 +328,12 @@ func (r *SuperGraphReconciler) reconcile(ctx context.Context, supergraph infrav1
 	containers := []corev1.Container{
 		{
 			Name:  "router",
-			Image: "ghcr.io/apollographql/router:v2.9.0",
+			Image: "ghcr.io/apollographql/router:v2.10.0",
 			Args: []string{
 				"--config",
-				"/config/router.yaml",
+				"/router.yaml",
 				"--supergraph",
-				"/schema/schema.graphql",
+				"/schema.graphql",
 				"--listen",
 				"0.0.0.0:4000",
 			},
@@ -365,11 +366,13 @@ func (r *SuperGraphReconciler) reconcile(ctx context.Context, supergraph infrav1
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      "schema",
-					MountPath: "/schema",
+					MountPath: "/schema.graphql",
+					SubPath:   "schema.graphql",
 				},
 				{
 					Name:      "config",
-					MountPath: "/config",
+					MountPath: "/router.yaml",
+					SubPath:   "router.yaml",
 				},
 			},
 		},

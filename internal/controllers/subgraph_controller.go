@@ -175,7 +175,7 @@ func (r *SubGraphReconciler) reconcile(ctx context.Context, subgraph infrav1beta
 	checksumSha := sha256.New()
 	checksumSha.Write([]byte(schema))
 	checksum := fmt.Sprintf("%x", checksumSha.Sum(nil))
-	subgraph.Status.SHA256Checksum = checksum
+	subgraph.Status.ObservedSHA256Checksum = checksum
 	subgraph.Status.Schema = schema
 
 	subgraph = infrav1beta1.SubGraphReady(subgraph, metav1.ConditionTrue, "ReconciliationSuccessful", "schema available")

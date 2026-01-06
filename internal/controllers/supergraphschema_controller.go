@@ -330,7 +330,7 @@ func (r *SuperGraphSchemaReconciler) subGraphCheckum(subgraphs []infrav1beta1.Su
 	checksumSha := sha256.New()
 	for _, subgraph := range subgraphs {
 		checksumSha.Write([]byte(subgraph.Spec.Endpoint))
-		checksumSha.Write([]byte(subgraph.Status.SHA256Checksum))
+		checksumSha.Write([]byte(subgraph.Status.ObservedSHA256Checksum))
 	}
 
 	return fmt.Sprintf("%x", checksumSha.Sum(nil))
