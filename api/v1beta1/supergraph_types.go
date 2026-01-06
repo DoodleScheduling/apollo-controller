@@ -25,6 +25,7 @@ import (
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:subresource:scale:specpath=.spec.deploymentTemplate.spec.replicas,statuspath=.status.replicas,selectorpath=.status.selector
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status",description=""
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message",description=""
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description=""
@@ -141,6 +142,9 @@ type SuperGraphStatus struct {
 
 	// ConfigMap reference
 	ConfigMap corev1.LocalObjectReference `json:"configMap,omitempty"`
+
+	// ObservedSHA256Checksum is a checksum of the discovered schema
+	ObservedSHA256Checksum string `json:"observedSHA256Checksum,omitempty"`
 
 	// ObservedGeneration is the last generation reconciled by the controller
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`

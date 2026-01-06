@@ -93,6 +93,7 @@ type SuperGraphSchemaStatus struct {
 
 	ComposeErrors []ComposeError `json:"composeErrors,omitempty"`
 
+	// ObservedSHA256Checksum is a checkum across all subgraph resources discovered by this resource
 	ObservedSHA256Checksum string `json:"observedSHA256Checksum,omitempty"`
 
 	// ConfigMap reference

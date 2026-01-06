@@ -8894,9 +8894,17 @@ spec:
                   by the controller
                 format: int64
                 type: integer
+              observedSHA256Checksum:
+                description: ObservedSHA256Checksum is a checksum of the discovered
+                  schema
+                type: string
             type: object
         type: object
     served: true
     storage: true
     subresources:
+      scale:
+        labelSelectorPath: .status.selector
+        specReplicasPath: .spec.deploymentTemplate.spec.replicas
+        statusReplicasPath: .status.replicas
       status: {}

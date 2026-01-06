@@ -137,10 +137,12 @@ spec:
                   by the controller
                 format: int64
                 type: integer
+              observedSHA256Checksum:
+                description: ObservedSHA256Checksum is a checksum of the discovered
+                  schema
+                type: string
               schema:
                 description: Schema
-                type: string
-              sha256Checksum:
                 type: string
             type: object
         type: object
