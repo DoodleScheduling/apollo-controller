@@ -41,10 +41,10 @@ github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f h1:Wl78ApPPB2
 github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f/go.mod h1:OSYXu++VVOHnXeitef/D8n/6y4QV8uLHSFXX4NeXMGc=
 github.com/fluxcd/cli-utils v0.36.0-flux.15 h1:Et5QLnIpRjj+oZtM9gEybkAaoNsjysHq0y1253Ai94Y=
 github.com/fluxcd/cli-utils v0.36.0-flux.15/go.mod h1:AqRUmWIfNE7cdL6NWSGF0bAlypGs+9x5UQ2qOtlEzv4=
-github.com/fluxcd/pkg/apis/meta v1.23.0 h1:fLis5YcHnOsyKYptzBtituBm5EWNx13I0bXQsy0FG4s=
-github.com/fluxcd/pkg/apis/meta v1.23.0/go.mod h1:UWsIbBPCxYvoVklr2mV2uLFBf/n17dNAmKFjRfApdDo=
-github.com/fluxcd/pkg/runtime v0.92.0 h1:FqelIv8L8TPCNnuF4cc7c/43P2p6aDT7FRDuZY6/kB8=
-github.com/fluxcd/pkg/runtime v0.92.0/go.mod h1:D/gUsaSpyw6Od2QEL7MELi5m+oUmwokuxUVZ+vKQxdo=
+github.com/fluxcd/pkg/apis/meta v1.24.0 h1:+e33T4OL9oqMWZSltsgImvi+/Punx42X9NqFlPesH6o=
+github.com/fluxcd/pkg/apis/meta v1.24.0/go.mod h1:UWsIbBPCxYvoVklr2mV2uLFBf/n17dNAmKFjRfApdDo=
+github.com/fluxcd/pkg/runtime v0.93.0 h1:fgd1O1xC7RRK5XJjBCocgg6MkDHS56Q73F0h5qCIvVk=
+github.com/fluxcd/pkg/runtime v0.93.0/go.mod h1:/E4dT1pdSkidyRTR5ghSzoyHEUcEJw3ipvJt597ArOA=
 github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=
 github.com/fsnotify/fsnotify v1.9.0/go.mod h1:8jBTzvmWwFyi3Pb8djgCCO5IBqzKJ/Jwo8TRcHyHii0=
 github.com/fxamacker/cbor/v2 v2.9.0 h1:NpKPmjDBgUfBms6tr6JZkTHtfFGcMKsw3eGcmD/sapM=

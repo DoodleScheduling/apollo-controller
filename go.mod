@@ -3,7 +3,7 @@ module github.com/DoodleScheduling/apollo-controller
 go 1.25.0
 
 require (
-	github.com/fluxcd/pkg/runtime v0.92.0
+	github.com/fluxcd/pkg/runtime v0.93.0
 	github.com/go-logr/logr v1.4.3
 	github.com/kylelemons/godebug v1.1.0
 	github.com/onsi/ginkgo/v2 v2.27.3
@@ -34,7 +34,7 @@ require (
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/fluxcd/cli-utils v0.36.0-flux.15 // indirect
-	github.com/fluxcd/pkg/apis/meta v1.23.0 // indirect
+	github.com/fluxcd/pkg/apis/meta v1.24.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/go-errors/errors v1.5.1 // indirect
