@@ -3,7 +3,7 @@ module github.com/DoodleScheduling/apollo-controller
 go 1.25.0
 
 require (
-	github.com/fluxcd/pkg/runtime v0.93.0
+	github.com/fluxcd/pkg/runtime v0.94.0
 	github.com/go-logr/logr v1.4.3
 	github.com/kylelemons/godebug v1.1.0
 	github.com/onsi/ginkgo/v2 v2.27.4
