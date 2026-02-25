@@ -284,6 +284,10 @@ func (r *SuperGraphReconciler) reconcile(ctx context.Context, supergraph infrav1
 		deploymentTemplate.Spec.Template.Annotations = make(map[string]string)
 	}
 
+	if deploymentTemplate.Annotations == nil {
+		deploymentTemplate.Annotations = make(map[string]string)
+	}
+
 	deploymentTemplate.Spec.Selector = &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"app.kubernetes.io/instance":   "apollo-router",
