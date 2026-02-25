@@ -23,6 +23,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"github.com/goccy/go-yaml"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -37,7 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/yaml"
 
 	infrav1beta1 "github.com/DoodleScheduling/apollo-controller/api/v1beta1"
 	"github.com/DoodleScheduling/apollo-controller/internal/merge"
@@ -300,10 +300,6 @@ func (r *SuperGraphReconciler) reconcile(ctx context.Context, supergraph infrav1
 	deploymentTemplate.Labels["app.kubernetes.io/instance"] = "apollo-router"
 	deploymentTemplate.Labels["app.kubernetes.io/name"] = "apollo-router"
 	deploymentTemplate.Labels["apollo-controller/supergraph"] = supergraph.Name
-
-	if deploymentTemplate.Annotations == nil {
-		deploymentTemplate.Annotations = make(map[string]string)
-	}
 
 	deploymentTemplate.Spec.Template.Spec.Volumes = append(deploymentTemplate.Spec.Template.Spec.Volumes, corev1.Volume{
 		Name: "schema",
