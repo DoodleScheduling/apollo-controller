@@ -46,7 +46,7 @@ type SuperGraphSchemaList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&SuperGraphSchema{}, &SuperGraphSchemaList{})
+	objectTypes = append(objectTypes, &SuperGraphSchema{}, &SuperGraphSchemaList{})
 }
 
 // SuperGraphSchemaSpec defines the desired state of SuperGraphSchema

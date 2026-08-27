@@ -8,7 +8,24 @@ rules:
   - ""
   resources:
   - configmaps
-  - pods
+  verbs:
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - services
   verbs:
   - create
@@ -20,25 +37,17 @@ rules:
   - watch
 - apiGroups:
   - ""
+  - events.k8s.io
   resources:
   - events
   verbs:
   - create
   - patch
 - apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
   - apollo.infra.doodle.com
   resources:
   - subgraphs
   - supergraphs
-  - supergraphschemas
   verbs:
   - create
   - delete
@@ -52,11 +61,24 @@ rules:
   resources:
   - subgraphs/status
   - supergraphs/status
-  - supergraphschemas/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - apollo.infra.doodle.com
+  resources:
+  - supergraphschemas
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apollo.infra.doodle.com
+  resources:
+  - supergraphschemas/status
+  verbs:
+  - get
 - apiGroups:
   - apps
   resources:

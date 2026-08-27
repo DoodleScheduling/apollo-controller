@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -48,20 +48,12 @@ import (
 	"github.com/fluxcd/pkg/runtime/conditions"
 )
 
-// +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=supergraphschemas,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=supergraphschemas/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=subgraphs,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;watch;list
-// +kubebuilder:rbac:groups="",resources=pods,verbs=create;get;update;patch;delete;watch;list
-// +kubebuilder:rbac:groups="",resources=configmaps,verbs=create;get;update;patch;delete;watch;list
-// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
-
 // SuperGraphSchema reconciles a SuperGraphSchema object
 type SuperGraphSchemaReconciler struct {
 	client.Client
 	Log                    logr.Logger
 	Scheme                 *runtime.Scheme
-	Recorder               record.EventRecorder
+	Recorder               events.EventRecorder
 	DefaultSuperGraphImage string
 	DefaultHTTPDImage      string
 	HTTPClient             *http.Client
@@ -189,7 +181,7 @@ func (r *SuperGraphSchemaReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		logger.Error(err, "reconcile error occurred")
 		schema = infrav1beta1.SuperGraphSchemaReady(schema, metav1.ConditionFalse, "ReconciliationFailed", err.Error())
-		r.Recorder.Event(&schema, "Normal", "error", err.Error())
+		r.Recorder.Eventf(&schema, nil, corev1.EventTypeNormal, "Error", "Reconcile", "failed to reconcile: %s", err.Error())
 	}
 
 	// Update status after reconciliation.
@@ -386,8 +378,6 @@ func (r *SuperGraphSchemaReconciler) handleReconcilerState(ctx context.Context, 
 		schema.Status.ComposeErrors = nil
 		schema.Status.ObservedSHA256Checksum = checksum
 		schema = infrav1beta1.SuperGraphSchemaReady(schema, metav1.ConditionTrue, "ReconciliationSucceeded", fmt.Sprintf("reconciler %s terminated with code 0", schema.Status.Reconciler.Name))
-		msg := "schema successfully composed"
-		r.Recorder.Event(&schema, "Normal", "info", msg)
 		return schema, ctrl.Result{Requeue: true}, nil
 	}
 
@@ -510,7 +500,6 @@ func (r *SuperGraphSchemaReconciler) createSuperGraphResult(ctx context.Context,
 }
 
 func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schema infrav1beta1.SuperGraphSchema, subgraphs []infrav1beta1.SubGraph, checksum string, logger logr.Logger) (infrav1beta1.SuperGraphSchema, ctrl.Result, error) {
-	r.Recorder.Event(&schema, "Normal", "info", "reconcile schema progressing")
 	schema = infrav1beta1.SuperGraphSchemaReady(schema, metav1.ConditionUnknown, "Progressing", "Reconciliation in progress")
 	schema = infrav1beta1.SuperGraphSchemaReconciling(schema, metav1.ConditionTrue, "Progressing", "")
 

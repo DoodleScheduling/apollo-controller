@@ -287,6 +287,145 @@ var _ = Describe("SuperGraph controller", func() {
 		})
 	})
 
+	When("it reconciles a supergraph which has health checks enabled", func() {
+		schemaName := fmt.Sprintf("supergraph-%s", randStringRunes(5))
+		supergraphName := fmt.Sprintf("supergraph-%s", randStringRunes(5))
+		var schema *v1beta1.SuperGraphSchema
+		var supergraph *v1beta1.SuperGraph
+
+		It("creates a new schema", func() {
+			ctx := context.Background()
+
+			schema = &v1beta1.SuperGraphSchema{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      schemaName,
+					Namespace: "default",
+				},
+				Spec: v1beta1.SuperGraphSchemaSpec{},
+			}
+
+			Expect(k8sClient.Create(ctx, schema)).Should(Succeed())
+			configMapName := fmt.Sprintf("supergraph-schema-%s", schemaName)
+			instanceLookupKey := types.NamespacedName{Name: schemaName, Namespace: "default"}
+
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, instanceLookupKey, schema)
+				if err != nil {
+					return err
+				}
+
+				schema.Status.ConfigMap.Name = configMapName
+				schema.Status.ObservedSHA256Checksum = "dummy-check"
+
+				return k8sClient.Status().Update(ctx, schema)
+			}, timeout, interval).Should(Not(HaveOccurred()))
+
+			cm := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      configMapName,
+					Namespace: "default",
+				},
+				Data: map[string]string{
+					"schema.graphql": "type Query { hello: String }",
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, cm)).Should(Succeed())
+		})
+
+		It("creates a new supergraph", func() {
+			ctx := context.Background()
+
+			supergraph = &v1beta1.SuperGraph{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      supergraphName,
+					Namespace: "default",
+				},
+				Spec: v1beta1.SuperGraphSpec{
+					Wait: true,
+					Schema: corev1.LocalObjectReference{
+						Name: schemaName,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, supergraph)).Should(Succeed())
+		})
+
+		It("should update the supergraph status to in progress", func() {
+			ctx := context.Background()
+			instanceLookupKey := types.NamespacedName{Name: supergraphName, Namespace: "default"}
+			reconciledInstance := &v1beta1.SuperGraph{}
+
+			expectedStatus := &v1beta1.SuperGraphStatus{
+				ObservedGeneration: 1,
+				Conditions: []metav1.Condition{
+					{
+						Type:    v1beta1.ConditionReady,
+						Status:  metav1.ConditionFalse,
+						Reason:  "ReconciliationFailed",
+						Message: "health check failed; no endpoint is ready",
+					},
+					{
+						Type:    v1beta1.ConditionReconciling,
+						Status:  metav1.ConditionTrue,
+						Reason:  "Progressing",
+						Message: "",
+					},
+					{
+						Type:    v1beta1.ConditionHealthy,
+						Status:  metav1.ConditionFalse,
+						Reason:  "NoEndpointReady",
+						Message: "health check failed; no endpoint is ready",
+					},
+				},
+			}
+			eventuallyMatchExactConditions(ctx, instanceLookupKey, reconciledInstance, expectedStatus)
+		})
+
+		It("updates the available replicas", func() {
+			ctx := context.Background()
+			var app appsv1.Deployment
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("apollo-router-%s", supergraphName), Namespace: "default"}, &app)
+			}, timeout, interval).Should(BeNil())
+
+			app.Status.AvailableReplicas = 3
+			app.Status.Replicas = 3
+			app.Status.ReadyReplicas = 3
+			Expect(k8sClient.Status().Update(ctx, &app)).Should(Succeed())
+		})
+
+		It("should update the supergraph status successfully reconciled with a healthy condition", func() {
+			ctx := context.Background()
+			instanceLookupKey := types.NamespacedName{Name: supergraphName, Namespace: "default"}
+			reconciledInstance := &v1beta1.SuperGraph{}
+
+			expectedStatus := &v1beta1.SuperGraphStatus{
+				ObservedGeneration: 1,
+				Conditions: []metav1.Condition{
+					{
+						Type:    v1beta1.ConditionReady,
+						Status:  metav1.ConditionTrue,
+						Reason:  "ReconciliationSuccessful",
+						Message: fmt.Sprintf("deployment/apollo-router-%s created", supergraphName),
+					},
+					{
+						Type:    v1beta1.ConditionHealthy,
+						Status:  metav1.ConditionTrue,
+						Reason:  "EndpointReady",
+						Message: "health check passed; at least one endpoint is ready",
+					},
+				},
+			}
+			eventuallyMatchExactConditions(ctx, instanceLookupKey, reconciledInstance, expectedStatus)
+		})
+
+		It("cleans up", func() {
+			ctx := context.Background()
+			Expect(k8sClient.Delete(ctx, supergraph)).Should(Succeed())
+		})
+	})
+
 	When("it reconciles a supergraph with a custom template", func() {
 		schemaName := fmt.Sprintf("supergraph-%s", randStringRunes(5))
 		supergraphName := fmt.Sprintf("supergraph-%s", randStringRunes(5))
