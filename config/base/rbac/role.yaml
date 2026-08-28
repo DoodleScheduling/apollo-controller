@@ -26,6 +26,7 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - pods
   - services
   verbs:
   - create
@@ -57,6 +58,7 @@ rules:
   resources:
   - subgraphs/status
   - supergraphs/status
+  - supergraphschemas/status
   verbs:
   - get
   - patch
@@ -73,12 +75,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - apollo.infra.doodle.com
-  resources:
-  - supergraphschemas/status
-  verbs:
-  - get
 - apiGroups:
   - apps
   resources:

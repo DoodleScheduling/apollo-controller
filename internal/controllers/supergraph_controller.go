@@ -48,11 +48,12 @@ import (
 // +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=supergraphs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=supergraphs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=supergraphschemas,verbs=get;list;watch
-// +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=supergraphschemas/status,verbs=get
+// +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=supergraphschemas/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=subgraphs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=subgraphs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;watch;list
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=create;get;update;patch;delete;watch;list
+// +kubebuilder:rbac:groups="",resources=pods,verbs=create;get;update;patch;delete;watch;list
 // +kubebuilder:rbac:groups="",resources=services,verbs=create;get;update;patch;delete;watch;list
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;update;patch;delete;watch;list
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch

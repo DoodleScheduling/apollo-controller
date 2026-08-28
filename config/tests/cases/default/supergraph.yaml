@@ -3,5 +3,6 @@ kind: SuperGraph
 metadata:
   name: root
 spec:
+  wait: true
   schema: 
     name: root

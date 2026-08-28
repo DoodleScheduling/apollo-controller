@@ -43,7 +43,8 @@
       "matchStrings": [
         "go-install-tool,\\$\\([A-Z_]+\\),(?<depName>[^@\\s]+)@(?<currentValue>release-[0-9.]+)"
       ],
-      "datasourceTemplate": "go",
+      "packageNameTemplate": "https://github.com/kubernetes-sigs/controller-runtime",
+      "datasourceTemplate": "git-refs",
       "versioningTemplate": "regex:^release-(?<major>\\d+)\\.(?<minor>\\d+)$"
     }
   ]
