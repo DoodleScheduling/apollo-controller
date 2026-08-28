@@ -181,7 +181,7 @@ func (r *SuperGraphSchemaReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		logger.Error(err, "reconcile error occurred")
 		schema = infrav1beta1.SuperGraphSchemaReady(schema, metav1.ConditionFalse, "ReconciliationFailed", err.Error())
-		r.Recorder.Eventf(&schema, nil, corev1.EventTypeNormal, "Error", "Reconcile", "failed to reconcile: %s", err.Error())
+		r.Recorder.Eventf(&schema, nil, corev1.EventTypeWarning, "Error", "Reconcile", "failed to reconcile: %s", err.Error())
 	}
 
 	// Update status after reconciliation.

@@ -47,14 +47,10 @@ rules:
   - apollo.infra.doodle.com
   resources:
   - subgraphs
-  - supergraphs
+  - supergraphschemas
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - apollo.infra.doodle.com
@@ -68,10 +64,14 @@ rules:
 - apiGroups:
   - apollo.infra.doodle.com
   resources:
-  - supergraphschemas
+  - supergraphs
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - apollo.infra.doodle.com

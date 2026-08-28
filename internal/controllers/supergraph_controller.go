@@ -50,10 +50,12 @@ import (
 // +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=supergraphschemas,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=supergraphschemas/status,verbs=get
 // +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=subgraphs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=subgraphs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;watch;list
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=create;get;update;patch;delete;watch;list
 // +kubebuilder:rbac:groups="",resources=services,verbs=create;get;update;patch;delete;watch;list
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;update;patch;delete;watch;list
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
 // SuperGraph reconciles a SuperGraph object
@@ -159,7 +161,7 @@ func (r *SuperGraphReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err != nil {
 		logger.Error(err, "reconcile error occurred")
 		supergraph = infrav1beta1.SuperGraphReady(supergraph, metav1.ConditionFalse, "ReconciliationFailed", err.Error())
-		r.Recorder.Eventf(&supergraph, nil, corev1.EventTypeNormal, "Error", "Reconcile", "failed to reconcile: %s", err.Error())
+		r.Recorder.Eventf(&supergraph, nil, corev1.EventTypeWarning, "Error", "Reconcile", "failed to reconcile: %s", err.Error())
 	}
 
 	// Update status after reconciliation.
