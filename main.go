@@ -163,7 +163,7 @@ func main() {
 		Client:   mgr.GetClient(),
 		Log:      ctrl.Log.WithName("controllers").WithName("SuperGraph"),
 		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("SuperGraph"),
+		Recorder: mgr.GetEventRecorder("SuperGraph"),
 	}
 
 	if err = supergraphReconciler.SetupWithManager(mgr, controllers.SuperGraphReconcilerOptions{
@@ -177,7 +177,7 @@ func main() {
 		Client:     mgr.GetClient(),
 		Log:        ctrl.Log.WithName("controllers").WithName("SubGraph"),
 		Scheme:     mgr.GetScheme(),
-		Recorder:   mgr.GetEventRecorderFor("SubGraph"),
+		Recorder:   mgr.GetEventRecorder("SubGraph"),
 		HTTPClient: http.DefaultClient,
 	}
 
@@ -192,7 +192,7 @@ func main() {
 		Client:                 mgr.GetClient(),
 		Log:                    ctrl.Log.WithName("controllers").WithName("SuperGraphSchema"),
 		Scheme:                 mgr.GetScheme(),
-		Recorder:               mgr.GetEventRecorderFor("SuperGraphSchema"),
+		Recorder:               mgr.GetEventRecorder("SuperGraphSchema"),
 		DefaultSuperGraphImage: defaultSuperGraphImage,
 		DefaultHTTPDImage:      defaultHTTPDImage,
 		HTTPClient:             http.DefaultClient,

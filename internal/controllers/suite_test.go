@@ -81,7 +81,7 @@ var _ = BeforeSuite(func() {
 	err = (&SubGraphReconciler{
 		Client:     k8sManager.GetClient(),
 		Log:        ctrl.Log.WithName("controllers").WithName("SubGraph"),
-		Recorder:   k8sManager.GetEventRecorderFor("SubGraph"),
+		Recorder:   k8sManager.GetEventRecorder("SubGraph"),
 		HTTPClient: http.DefaultClient,
 	}).SetupWithManager(k8sManager, SubGraphReconcilerOptions{})
 	Expect(err).ToNot(HaveOccurred())
@@ -89,7 +89,7 @@ var _ = BeforeSuite(func() {
 	err = (&SuperGraphSchemaReconciler{
 		Client:                 k8sManager.GetClient(),
 		Log:                    ctrl.Log.WithName("controllers").WithName("SuperGraphSchma"),
-		Recorder:               k8sManager.GetEventRecorderFor("SuperGraphSchma"),
+		Recorder:               k8sManager.GetEventRecorder("SuperGraphSchma"),
 		DefaultSuperGraphImage: "supergraph:v0",
 		DefaultHTTPDImage:      "busybox:v0",
 		HTTPClient:             http.DefaultClient,
@@ -99,7 +99,7 @@ var _ = BeforeSuite(func() {
 	err = (&SuperGraphReconciler{
 		Client:   k8sManager.GetClient(),
 		Log:      ctrl.Log.WithName("controllers").WithName("SuperGraph"),
-		Recorder: k8sManager.GetEventRecorderFor("SuperGraph"),
+		Recorder: k8sManager.GetEventRecorder("SuperGraph"),
 	}).SetupWithManager(k8sManager, SuperGraphReconcilerOptions{})
 	Expect(err).ToNot(HaveOccurred())
 

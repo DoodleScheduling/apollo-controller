@@ -22,15 +22,17 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/go-logr/logr"
 	"github.com/goccy/go-yaml"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -46,19 +48,23 @@ import (
 // +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=supergraphs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=supergraphs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=supergraphschemas,verbs=get;list;watch
-// +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=supergraphschemas/status,verbs=get
+// +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=supergraphschemas/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=subgraphs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=subgraphs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;watch;list
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=create;get;update;patch;delete;watch;list
+// +kubebuilder:rbac:groups="",resources=pods,verbs=create;get;update;patch;delete;watch;list
 // +kubebuilder:rbac:groups="",resources=services,verbs=create;get;update;patch;delete;watch;list
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;update;patch;delete;watch;list
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
 // SuperGraph reconciles a SuperGraph object
 type SuperGraphReconciler struct {
 	client.Client
 	Log      logr.Logger
 	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	Recorder events.EventRecorder
 }
 
 type SuperGraphReconcilerOptions struct {
@@ -156,7 +162,7 @@ func (r *SuperGraphReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err != nil {
 		logger.Error(err, "reconcile error occurred")
 		supergraph = infrav1beta1.SuperGraphReady(supergraph, metav1.ConditionFalse, "ReconciliationFailed", err.Error())
-		r.Recorder.Event(&supergraph, "Normal", "error", err.Error())
+		r.Recorder.Eventf(&supergraph, nil, corev1.EventTypeWarning, "Error", "Reconcile", "failed to reconcile: %s", err.Error())
 	}
 
 	// Update status after reconciliation.
@@ -182,6 +188,12 @@ func isOwner(owner, owned metav1.Object) bool {
 }
 
 func (r *SuperGraphReconciler) reconcile(ctx context.Context, supergraph infrav1beta1.SuperGraph) (infrav1beta1.SuperGraph, ctrl.Result, error) {
+	if supergraph.Spec.Wait {
+		//TODO this makes only sense if there is some sort of timeout of waiting til a pod is ready, otherwise we transition directly into False anyway
+		//hub = infrav1beta1.SuperGraphReady(supergraph, metav1.ConditionUnknown, "Progressing", "Reconciliation in progress")
+		supergraph = infrav1beta1.SuperGraphReconciling(supergraph, metav1.ConditionTrue, "Progressing", "")
+	}
+
 	var graphschema infrav1beta1.SuperGraphSchema
 	err := r.Get(ctx, client.ObjectKey{
 		Namespace: supergraph.Namespace,
@@ -424,6 +436,28 @@ func (r *SuperGraphReconciler) reconcile(ctx context.Context, supergraph infrav1
 		return supergraph, ctrl.Result{}, err
 	}
 
+	if supergraph.Spec.Wait {
+		var app appsv1.Deployment
+		if err := r.Get(ctx, client.ObjectKey{
+			Name:      fmt.Sprintf("apollo-router-%s", supergraph.Name),
+			Namespace: supergraph.Namespace,
+		}, &app); err != nil {
+			return supergraph, ctrl.Result{}, err
+		}
+
+		if app.Status.ReadyReplicas == 0 {
+			supergraph = infrav1beta1.SuperGraphHealthy(supergraph, metav1.ConditionFalse, "NoEndpointReady", "health check failed; no endpoint is ready")
+			supergraph = infrav1beta1.SuperGraphReady(supergraph, metav1.ConditionFalse, "ReconciliationFailed", "health check failed; no endpoint is ready")
+			r.Recorder.Eventf(&supergraph, nil, corev1.EventTypeNormal, "Error", "HealthCheck", "health check failed; no endpoint is ready")
+			return supergraph, ctrl.Result{}, nil
+		}
+
+		supergraph = infrav1beta1.SuperGraphHealthy(supergraph, metav1.ConditionTrue, "EndpointReady", "health check passed; at least one endpoint is ready")
+	} else {
+		conditions.Delete(&supergraph, infrav1beta1.ConditionHealthy)
+	}
+
+	conditions.Delete(&supergraph, infrav1beta1.ConditionReconciling)
 	supergraph = infrav1beta1.SuperGraphReady(supergraph, metav1.ConditionTrue, "ReconciliationSuccessful", fmt.Sprintf("deployment/%s created", deploymentTemplate.Name))
 	return supergraph, ctrl.Result{}, nil
 }
@@ -503,16 +537,21 @@ func (r *SuperGraphReconciler) createOrUpdateWithOwnershipValidation(ctx context
 		}
 
 		obj.GetObjectKind().SetGroupVersionKind(existing.GetObjectKind().GroupVersionKind())
-		err := r.Patch(
+
+		content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+		if err != nil {
+			return fmt.Errorf("can not convert resource to unstructured: %w", err)
+		}
+
+		err = r.Apply(
 			ctx,
-			obj,
-			client.Apply,
+			client.ApplyConfigurationFromUnstructured(&unstructured.Unstructured{Object: content}),
 			client.FieldOwner("apollo-controller"),
 			client.ForceOwnership,
 		)
 
 		if err != nil {
-			return fmt.Errorf("can not patch resource: %w", err)
+			return fmt.Errorf("can not apply resource: %w", err)
 		}
 	}
 

@@ -27,10 +27,11 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,17 +42,13 @@ import (
 	infrav1beta1 "github.com/DoodleScheduling/apollo-controller/api/v1beta1"
 )
 
-// +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=subgraphs,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=apollo.infra.doodle.com,resources=subgraphs/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
-
 // SubGraph reconciles a SubGraph object
 type SubGraphReconciler struct {
 	client.Client
 	Log        logr.Logger
 	Scheme     *runtime.Scheme
 	HTTPClient httpClient
-	Recorder   record.EventRecorder
+	Recorder   events.EventRecorder
 }
 
 type SubGraphReconcilerOptions struct {
@@ -106,7 +103,7 @@ func (r *SubGraphReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if err != nil {
 		logger.Error(err, "reconcile error occurred")
 		subgraph = infrav1beta1.SubGraphReady(subgraph, metav1.ConditionFalse, "ReconciliationFailed", err.Error())
-		r.Recorder.Event(&subgraph, "Normal", "error", err.Error())
+		r.Recorder.Eventf(&subgraph, nil, corev1.EventTypeWarning, "Error", "Reconcile", "failed to reconcile: %s", err.Error())
 	}
 
 	// Update status after reconciliation.

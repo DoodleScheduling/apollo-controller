@@ -48,7 +48,7 @@ type SuperGraphList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&SuperGraph{}, &SuperGraphList{})
+	objectTypes = append(objectTypes, &SuperGraph{}, &SuperGraphList{})
 }
 
 // SuperGraphSpec defines the desired state of SuperGraph
@@ -58,6 +58,10 @@ type SuperGraphSpec struct {
 	// Suspend reconciliation
 	// +optional
 	Suspend bool `json:"suspend,omitempty"`
+
+	// Wait for an endpoint to be available
+	// +optional
+	Wait bool `json:"wait,omitempty"`
 
 	RouterConfig runtime.RawExtension `json:"routerConfig,omitempty"`
 
@@ -156,6 +160,11 @@ func SuperGraphReconciling(supergraph SuperGraph, status metav1.ConditionStatus,
 
 func SuperGraphReady(supergraph SuperGraph, status metav1.ConditionStatus, reason, message string) SuperGraph {
 	setResourceCondition(&supergraph, ConditionReady, status, reason, message, supergraph.Generation)
+	return supergraph
+}
+
+func SuperGraphHealthy(supergraph SuperGraph, status metav1.ConditionStatus, reason, message string) SuperGraph {
+	setResourceCondition(&supergraph, ConditionHealthy, status, reason, message, supergraph.Generation)
 	return supergraph
 }
 

@@ -26,7 +26,7 @@ type SubGraphList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&SubGraph{}, &SubGraphList{})
+	objectTypes = append(objectTypes, &SubGraph{}, &SubGraphList{})
 }
 
 // SubGraphSpec
