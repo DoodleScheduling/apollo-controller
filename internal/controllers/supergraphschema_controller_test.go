@@ -168,10 +168,10 @@ var _ = Describe("SuperGraphSchema controller", func() {
 			Expect(configMap.Data).Should(HaveKey("supergraph.yaml"))
 			expectedYAML := fmt.Sprintf(`federation_version: "2"
 subgraphs:
-    %s:
-        routing_url: ""
-        schema:
-            sdl: 'type Query { hello: String }'
+  %s:
+    routing_url: ""
+    schema:
+      sdl: "type Query { hello: String }"
 `, subName)
 
 			Expect(configMap.Data["supergraph.yaml"]).Should(Equal(expectedYAML))
@@ -708,14 +708,14 @@ subgraphs:
 			By("validating the composeConfig ConfigMap")
 			expectedYAML := fmt.Sprintf(`federation_version: "2.2"
 subgraphs:
-    %s:
-        routing_url: ""
-        schema:
-            sdl: 'type Query { hello: String }'
-    %s:
-        routing_url: ""
-        schema:
-            sdl: 'type Query { hello: String }'
+  %s:
+    routing_url: ""
+    schema:
+      sdl: "type Query { hello: String }"
+  %s:
+    routing_url: ""
+    schema:
+      sdl: "type Query { hello: String }"
 `, subName, subName2)
 			configMap := &corev1.ConfigMap{}
 			Eventually(func() error {
@@ -865,10 +865,10 @@ subgraphs:
 			Expect(configMap.Data).Should(HaveKey("supergraph.yaml"))
 			expectedYAML := fmt.Sprintf(`federation_version: "2"
 subgraphs:
-    %s:
-        routing_url: https://example2.com
-        schema:
-            sdl: 'type Query { hello: String }'
+  %s:
+    routing_url: https://example2.com
+    schema:
+      sdl: "type Query { hello: String }"
 `, subName)
 			Expect(configMap.Data["supergraph.yaml"]).Should(Equal(expectedYAML))
 		})
@@ -1111,10 +1111,10 @@ subgraphs:
 			By("validating the composeConfig ConfigMap")
 			expectedYAML := fmt.Sprintf(`federation_version: "2"
 subgraphs:
-    %s:
-        routing_url: https://example-svc.com
-        schema:
-            sdl: 'type Query { hello: String }'
+  %s:
+    routing_url: https://example-svc.com
+    schema:
+      sdl: "type Query { hello: String }"
 `, subName)
 
 			configMap := &corev1.ConfigMap{}
@@ -1194,10 +1194,10 @@ subgraphs:
 			// After endpoint update to "changed", routing_url should be "changed"
 			expectedYAML = fmt.Sprintf(`federation_version: "2"
 subgraphs:
-    %s:
-        routing_url: changed
-        schema:
-            sdl: 'type Query { hello: String }'
+  %s:
+    routing_url: changed
+    schema:
+      sdl: "type Query { hello: String }"
 `, subName)
 
 			Expect(configMapAfterUpdate.Data["supergraph.yaml"]).Should(Equal(expectedYAML))
