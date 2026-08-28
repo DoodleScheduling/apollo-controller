@@ -2,7 +2,6 @@
 
 [![release](https://img.shields.io/github/release/DoodleScheduling/apollo-controller/all.svg)](https://github.com/DoodleScheduling/apollo-controller/releases)
 [![release](https://github.com/doodlescheduling/apollo-controller/actions/workflows/release.yaml/badge.svg)](https://github.com/doodlescheduling/apollo-controller/actions/workflows/release.yaml)
-[![report](https://goreportcard.com/badge/github.com/DoodleScheduling/apollo-controller)](https://goreportcard.com/report/github.com/DoodleScheduling/apollo-controller)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/DoodleScheduling/apollo-controller/badge)](https://api.securityscorecards.dev/projects/github.com/DoodleScheduling/apollo-controller)
 [![Coverage Status](https://coveralls.io/repos/github/DoodleScheduling/apollo-controller/badge.svg?branch=master)](https://coveralls.io/github/DoodleScheduling/apollo-controller?branch=master)
 [![license](https://img.shields.io/github/license/DoodleScheduling/apollo-controller.svg)](https://github.com/DoodleScheduling/apollo-controller/blob/master/LICENSE)
