@@ -81,7 +81,7 @@ var _ = BeforeSuite(func() {
 	err = (&SubGraphReconciler{
 		Client:     k8sManager.GetClient(),
 		Log:        ctrl.Log.WithName("controllers").WithName("SubGraph"),
-		Recorder:   k8sManager.GetEventRecorderFor("SubGraph"),
+		Recorder:   k8sManager.GetEventRecorder("SubGraph"),
 		HTTPClient: http.DefaultClient,
 	}).SetupWithManager(k8sManager, SubGraphReconcilerOptions{})
 	Expect(err).ToNot(HaveOccurred())

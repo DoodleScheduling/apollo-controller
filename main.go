@@ -177,7 +177,7 @@ func main() {
 		Client:     mgr.GetClient(),
 		Log:        ctrl.Log.WithName("controllers").WithName("SubGraph"),
 		Scheme:     mgr.GetScheme(),
-		Recorder:   mgr.GetEventRecorderFor("SubGraph"),
+		Recorder:   mgr.GetEventRecorder("SubGraph"),
 		HTTPClient: http.DefaultClient,
 	}
 
