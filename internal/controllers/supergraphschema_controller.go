@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/events"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -741,10 +742,16 @@ func (r *SuperGraphSchemaReconciler) extendSuperWithSubGraphs(ctx context.Contex
 
 func (r *SuperGraphSchemaReconciler) patchStatus(ctx context.Context, schema *infrav1beta1.SuperGraphSchema) error {
 	key := client.ObjectKeyFromObject(schema)
-	latest := &infrav1beta1.SuperGraphSchema{}
-	if err := r.Get(ctx, key, latest); err != nil {
-		return err
-	}
+	status := schema.Status
 
-	return r.Status().Patch(ctx, schema, client.MergeFrom(latest))
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		latest := &infrav1beta1.SuperGraphSchema{}
+		if err := r.Get(ctx, key, latest); err != nil {
+			return err
+		}
+
+		patch := latest.DeepCopy()
+		patch.Status = status
+		return r.Status().Patch(ctx, patch, client.MergeFrom(latest))
+	})
 }

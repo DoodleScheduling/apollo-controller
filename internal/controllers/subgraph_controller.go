@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/events"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -109,7 +110,7 @@ func (r *SubGraphReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// Update status after reconciliation.
 	if err := r.patchStatus(ctx, &subgraph); err != nil {
 		logger.Error(err, "unable to update status after reconciliation")
-		return ctrl.Result{Requeue: true}, err
+		return ctrl.Result{}, err
 	}
 
 	if err != nil {
@@ -181,10 +182,16 @@ func (r *SubGraphReconciler) reconcile(ctx context.Context, subgraph infrav1beta
 
 func (r *SubGraphReconciler) patchStatus(ctx context.Context, subgraph *infrav1beta1.SubGraph) error {
 	key := client.ObjectKeyFromObject(subgraph)
-	latest := &infrav1beta1.SubGraph{}
-	if err := r.Get(ctx, key, latest); err != nil {
-		return err
-	}
+	status := subgraph.Status
 
-	return r.Status().Patch(ctx, subgraph, client.MergeFrom(latest))
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		latest := &infrav1beta1.SubGraph{}
+		if err := r.Get(ctx, key, latest); err != nil {
+			return err
+		}
+
+		patch := latest.DeepCopy()
+		patch.Status = status
+		return r.Status().Patch(ctx, patch, client.MergeFrom(latest))
+	})
 }
