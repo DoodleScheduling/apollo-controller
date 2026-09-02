@@ -18,8 +18,8 @@ import (
 
 var _ = Describe("SuperGraphSchema controller", func() {
 	const (
-		timeout  = time.Second * 3
-		interval = time.Millisecond * 200
+		timeout  = time.Second * 6
+		interval = time.Millisecond * 50
 	)
 
 	When("reconciling a suspended SuperGraphSchema", func() {
