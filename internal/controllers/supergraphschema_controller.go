@@ -281,7 +281,7 @@ func (r *SuperGraphSchemaReconciler) reconcile(ctx context.Context, schema infra
 	progressingCondition := conditions.Get(&schema, infrav1beta1.ConditionReconciling)
 	if progressingCondition != nil && readyCondition != nil && readyCondition.Status == metav1.ConditionTrue && podErr == nil && schema.Status.Reconciler.Name != "" {
 		logger.V(1).Info("garbage collect reconciler pod", "pod-name", schema.Status.Reconciler.Name)
-		return schema, ctrl.Result{Requeue: true}, cleanup()
+		return schema, ctrl.Result{RequeueAfter: time.Millisecond}, cleanup()
 	}
 
 	if schema.Status.ConfigMap.Name != "" {
@@ -379,7 +379,7 @@ func (r *SuperGraphSchemaReconciler) handleReconcilerState(ctx context.Context, 
 		schema.Status.ComposeErrors = nil
 		schema.Status.ObservedSHA256Checksum = checksum
 		schema = infrav1beta1.SuperGraphSchemaReady(schema, metav1.ConditionTrue, "ReconciliationSucceeded", fmt.Sprintf("reconciler %s terminated with code 0", schema.Status.Reconciler.Name))
-		return schema, ctrl.Result{Requeue: true}, nil
+		return schema, ctrl.Result{RequeueAfter: time.Millisecond}, nil
 	}
 
 	schema.Status.ComposeErrors = nil
@@ -497,7 +497,7 @@ func (r *SuperGraphSchemaReconciler) createSuperGraphResult(ctx context.Context,
 	}
 
 	schema.Status.ConfigMap.Name = cm.Name
-	return schema, ctrl.Result{Requeue: true}, nil
+	return schema, ctrl.Result{RequeueAfter: time.Millisecond}, nil
 }
 
 func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schema infrav1beta1.SuperGraphSchema, subgraphs []infrav1beta1.SubGraph, checksum string, logger logr.Logger) (infrav1beta1.SuperGraphSchema, ctrl.Result, error) {
