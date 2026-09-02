@@ -23,9 +23,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-  "time"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/goccy/go-yaml"
