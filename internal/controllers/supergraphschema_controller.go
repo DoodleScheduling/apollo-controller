@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+  "time"
 	"net/http"
 	"slices"
 
@@ -265,14 +266,14 @@ func (r *SuperGraphSchemaReconciler) reconcile(ctx context.Context, schema infra
 	if apierrors.IsNotFound(podErr) {
 		conditions.Delete(&schema, infrav1beta1.ConditionReconciling)
 		schema.Status.Reconciler.Name = ""
-		return schema, ctrl.Result{Requeue: true}, nil
+		return schema, ctrl.Result{RequeueAfter: time.Millisecond}, nil
 	}
 
 	// cleanup reconciler pod if stale
 	if needUpdate {
 		conditions.Delete(&schema, infrav1beta1.ConditionReconciling)
 		logger.V(1).Info("schema checksum changed, delete stale reconciler", "pod-name", schema.Status.Reconciler)
-		return schema, ctrl.Result{Requeue: true}, cleanup()
+		return schema, ctrl.Result{RequeueAfter: time.Millisecond}, cleanup()
 	}
 
 	// garbage collect reconciler pod
