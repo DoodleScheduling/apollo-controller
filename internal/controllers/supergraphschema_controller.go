@@ -226,6 +226,12 @@ func (r *SuperGraphSchemaReconciler) reconcile(ctx context.Context, schema infra
 	var needUpdate bool
 
 	cleanup := func() error {
+		if configmapErr == nil {
+			if err := r.Delete(ctx, configmap); err != nil && !apierrors.IsNotFound(err) {
+				return fmt.Errorf("could not delete reconciler configmap: %w", err)
+			}
+		}
+
 		if podErr == nil {
 			if err := r.Delete(ctx, pod); err != nil && !apierrors.IsNotFound(err) {
 				return fmt.Errorf("could not delete reconciler pod: %w", err)
@@ -262,8 +268,8 @@ func (r *SuperGraphSchemaReconciler) reconcile(ctx context.Context, schema infra
 		}
 	}
 
-	// unlink schema reconciler only if the reconciler pod is gone
-	if apierrors.IsNotFound(podErr) {
+	// unlink schema reconciler only if the reconciler pod and the configmap is gone
+	if apierrors.IsNotFound(podErr) && apierrors.IsNotFound(configmapErr) {
 		conditions.Delete(&schema, infrav1beta1.ConditionReconciling)
 		schema.Status.Reconciler.Name = ""
 		return schema, ctrl.Result{RequeueAfter: time.Millisecond}, nil
@@ -632,11 +638,6 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 		return schema, ctrl.Result{}, err
 	}
 
-	logger.Info("create new reconciler pod", "pod", template.Name, "previous", schema.Status.Reconciler.Name)
-	if err := r.Create(ctx, template); err != nil {
-		return schema, ctrl.Result{}, err
-	}
-
 	configmap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: template.Name,
@@ -645,25 +646,31 @@ func (r *SuperGraphSchemaReconciler) createReconciler(ctx context.Context, schem
 				"app.kubernetes.io/name":     "supergraph-composer",
 				"apollo-controller/schema":   schema.Name,
 			},
-			Namespace: schema.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					Name:       template.Name,
-					APIVersion: "v1",
-					Kind:       "Pod",
-					UID:        template.UID,
-					Controller: &controllerOwner,
-				},
-			},
+			Namespace:       schema.Namespace,
+			OwnerReferences: template.OwnerReferences,
 		},
 		Data: map[string]string{
 			"supergraph.yaml": string(composeConfig),
 		},
 	}
 
+	// Failed creations are rolled back and the reconciler unlinked so the next run directly retries the creation.
 	logger.Info("creating new supergraph composer configmap", "configmap", configmap.Name)
 
 	if err := r.Create(ctx, configmap); err != nil {
+		schema.Status.Reconciler.Name = ""
+		conditions.Delete(&schema, infrav1beta1.ConditionReconciling)
+		return schema, ctrl.Result{}, err
+	}
+
+	logger.Info("create new reconciler pod", "pod", template.Name)
+	if err := r.Create(ctx, template); err != nil {
+		if delErr := r.Delete(ctx, configmap); delErr != nil && !apierrors.IsNotFound(delErr) {
+			return schema, ctrl.Result{}, fmt.Errorf("%w; could not delete reconciler configmap: %w", err, delErr)
+		}
+
+		schema.Status.Reconciler.Name = ""
+		conditions.Delete(&schema, infrav1beta1.ConditionReconciling)
 		return schema, ctrl.Result{}, err
 	}
 

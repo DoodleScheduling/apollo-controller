@@ -164,7 +164,7 @@ var _ = Describe("SuperGraphSchema controller", func() {
 				}, configMap)
 			}, timeout, interval).Should(Succeed())
 
-			Expect(configMap.OwnerReferences[0].Name).Should(Equal(reconciledInstance.Status.Reconciler.Name))
+			Expect(configMap.OwnerReferences[0].Name).Should(Equal(reconciledInstance.Name))
 			Expect(configMap.Data).Should(HaveKey("supergraph.yaml"))
 			expectedYAML := fmt.Sprintf(`federation_version: "2"
 subgraphs:
