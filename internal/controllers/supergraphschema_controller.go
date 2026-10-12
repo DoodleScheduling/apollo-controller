@@ -85,6 +85,11 @@ func (r *SuperGraphSchemaReconciler) SetupWithManager(mgr ctrl.Manager, opts Sup
 		Watches(
 			&corev1.ConfigMap{},
 			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &infrav1beta1.SuperGraphSchema{}, handler.OnlyControllerOwner()),
+			// Reconciler configmaps are excluded, their events would requeue the schema immediately and bypass the error backoff
+			// if the reconciler pod can not be created. The reconciler state is tracked by watching the pod.
+			builder.WithPredicates(predicate.NewPredicateFuncs(func(o client.Object) bool {
+				return o.GetLabels()["app.kubernetes.io/instance"] != "supergraph-composer"
+			})),
 		).
 		WithOptions(controller.Options{MaxConcurrentReconciles: opts.MaxConcurrentReconciles}).
 		Complete(r)
